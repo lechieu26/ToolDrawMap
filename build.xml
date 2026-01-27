@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="DrawMapTool" default="default" basedir=".">
+    <description>Builds, tests, and runs the project DrawMapTool.</description>
+    <import file="nbproject/build-impl.xml"/>
+    
+    <!-- 
+        KHÔNG copy data vào dist để tiết kiệm thời gian build.
+        Thay vào đó, chạy từ thư mục gốc của project.
+    -->
+    
+    <target name="-post-compile">
+        <!-- Không copy data vào build/classes nữa -->
+    </target>
+    
+    <target name="-post-jar">
+        <!-- Chỉ copy libs, KHÔNG copy data -->
+        <copy todir="${dist.dir}/lib" failonerror="false">
+            <fileset dir="lib"/>
+        </copy>
+        <!-- Copy file config nhỏ để tiện chỉnh sửa -->
+        <mkdir dir="${dist.dir}/data/config"/>
+        <copy todir="${dist.dir}/data/config" failonerror="false">
+            <fileset dir="data/config"/>
+        </copy>
+    </target>
+</project>

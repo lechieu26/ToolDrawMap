@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+*** GENERATED FROM project.xml - DO NOT EDIT  ***
+***         EDIT ../build.xml INSTEAD         ***
+-->
+<project name="DrawMapTool-impl" default="default" basedir="..">
+    <target name="default" depends="jar" description="Build this project."/>
+    
+    <property file="nbproject/project.properties"/>
+    
+    <path id="project.classpath">
+        <pathelement location="${build.classes.dir}"/>
+        <fileset dir="lib">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+    
+    <target name="init">
+        <mkdir dir="${build.dir}"/>
+        <mkdir dir="${build.classes.dir}"/>
+        <mkdir dir="${dist.dir}"/>
+    </target>
+    
+    <target name="compile" depends="init">
+        <javac srcdir="${src.dir}" destdir="${build.classes.dir}" 
+               source="${javac.source}" target="${javac.target}"
+               includeantruntime="false" encoding="${source.encoding}">
+            <classpath refid="project.classpath"/>
+        </javac>
+    </target>
+    
+    <target name="jar" depends="compile">
+        <jar destfile="${dist.jar}" basedir="${build.classes.dir}">
+            <manifest>
+                <attribute name="Main-Class" value="${main.class}"/>
+                <attribute name="Class-Path" value="lib/girlkundb-1.0.0.jar lib/flatlaf-1.6.jar lib/flatlaf-intellij-themes-1.6.jar lib/json_simple-1.1.jar lib/mysql-connector-j-8.3.0.jar lib/TimingFramework-0.55.jar"/>
+            </manifest>
+        </jar>
+        <copy todir="${dist.dir}/lib">
+            <fileset dir="lib"/>
+        </copy>
+        <!-- Chi copy config, KHONG copy toan bo data folder -->
+        <mkdir dir="${dist.dir}/data/config"/>
+        <copy todir="${dist.dir}/data/config">
+            <fileset dir="data/config"/>
+        </copy>
+    </target>
+    
+    <target name="run" depends="compile">
+        <java classname="${main.class}" fork="true" dir=".">
+            <classpath refid="project.classpath"/>
+        </java>
+    </target>
+    
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+    
+    <target name="clean-build" depends="clean,jar"/>
+</project>

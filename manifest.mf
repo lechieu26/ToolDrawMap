@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: com.girlkun.tool.main.Main
+Class-Path: lib/girlkundb-1.0.0.jar lib/flatlaf-1.6.jar lib/flatlaf-intellij-themes-1.6.jar lib/json_simple-1.1.jar lib/mysql-connector-j-8.3.0.jar lib/TimingFramework-0.55.jar
+

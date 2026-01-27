@@ -1,0 +1,14 @@
+# Ignore everything at root
+/*
+
+# Unignore specific directories (and their contents by default)
+!/src/
+!/lib/
+!/nbproject/
+
+# Unignore specific root files
+!build.xml
+!manifest.mf
+!README.md
+!run.bat
+!.gitignore
