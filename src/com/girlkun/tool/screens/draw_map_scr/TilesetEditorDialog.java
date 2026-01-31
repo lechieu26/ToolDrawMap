@@ -30,6 +30,9 @@ public class TilesetEditorDialog extends JFrame {
     private static final String RES_BASE_PATH = "data/girlkun/res";
     private static final String TILE_PATH = "data/tile";
 
+    // Cache thư mục cuối cùng đã chọn
+    private static String lastMapDir = null;
+
     // App state
     private BufferedImage currentImage; // Ảnh gốc (map)
     private double zoomPercent = 100; // 10% - 500%
@@ -376,10 +379,28 @@ public class TilesetEditorDialog extends JFrame {
     }
 
     private void loadMapImage() {
-        // Sử dụng ImagePickerDialog thay vì JFileChooser
-        File selected = ImagePickerDialog.pickImage(this, "Chọn ảnh Map gốc", "data/bg");
+        // Sử dụng Windows Explorer native (FileDialog)
+        FileDialog dialog = new FileDialog(this, "Chọn ảnh Map gốc", FileDialog.LOAD);
 
-        if (selected != null) {
+        // Set thư mục: ưu tiên thư mục cuối cùng đã chọn, nếu chưa có thì dùng
+        // "data/bg"
+        dialog.setDirectory(lastMapDir != null ? lastMapDir : "data/bg");
+
+        // Filter file ảnh
+        dialog.setFilenameFilter((dir, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg") || lower.endsWith(".gif");
+        });
+
+        dialog.setVisible(true);
+
+        String fileName = dialog.getFile();
+        if (fileName != null) {
+            // Lưu lại thư mục đã chọn để lần sau mở nhanh hơn
+            lastMapDir = dialog.getDirectory();
+            File selected = new File(dialog.getDirectory(), fileName);
+
             try {
                 currentImage = ImageIO.read(selected);
                 selectedCells.clear();

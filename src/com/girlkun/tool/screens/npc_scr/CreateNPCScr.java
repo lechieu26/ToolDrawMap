@@ -1,6 +1,6 @@
 package com.girlkun.tool.screens.npc_scr;
 
-import com.girlkun.tool.screens.draw_map_scr.ImagePickerDialog;
+import java.awt.FileDialog;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO.NpcFullInfo;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO.PartData;
@@ -1111,22 +1111,38 @@ public class CreateNPCScr extends JInternalFrame {
         worker.execute();
     }
 
-    // Đường dẫn cố định
+    // Đường dẫn mặc định
     private static final String IMAGE_DIR_PATH = System.getProperty("user.dir") + "/data/girlkun/icon/x4";
+    // Cache thư mục cuối cùng đã chọn (dùng chung cho cả avatar và part)
+    private static String lastSelectedDir = null;
 
     private void selectAvatarImage() {
-        Window window = SwingUtilities.getWindowAncestor(this);
-        // Force mở folder data/girlkun/icon/x4
-        File selectedFile = ImagePickerDialog.pickImage(window, "Chọn Avatar NPC", IMAGE_DIR_PATH);
+        // Sử dụng Windows Explorer native (FileDialog)
+        Frame frame = (Frame) SwingUtilities.getWindowAncestor(this);
+        FileDialog dialog = new FileDialog(frame, "Chọn Avatar NPC", FileDialog.LOAD);
 
-        if (selectedFile != null) {
+        // Set thư mục: ưu tiên thư mục cuối cùng đã chọn, nếu chưa có thì dùng mặc định
+        dialog.setDirectory(lastSelectedDir != null ? lastSelectedDir : IMAGE_DIR_PATH);
+
+        // Filter file ảnh
+        dialog.setFilenameFilter((dir, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg") || lower.endsWith(".gif");
+        });
+
+        dialog.setVisible(true);
+
+        String fileName = dialog.getFile();
+        if (fileName != null) {
+            // Lưu lại thư mục đã chọn để lần sau mở nhanh hơn
+            lastSelectedDir = dialog.getDirectory();
+            File selectedFile = new File(dialog.getDirectory(), fileName);
             try {
                 avatarImage = ImageIO.read(selectedFile);
-                // Không cache lastImageDir nữa để luôn mở folder cố định
 
                 // Extract ID from filename
-                String filename = selectedFile.getName();
-                String nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
+                String nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
                 try {
                     avatarId = Integer.parseInt(nameWithoutExt);
                 } catch (NumberFormatException e) {
@@ -1143,7 +1159,6 @@ public class CreateNPCScr extends JInternalFrame {
     }
 
     private void selectPartImage(String partType) {
-        Window window = SwingUtilities.getWindowAncestor(this);
         String title;
 
         switch (partType) {
@@ -1160,24 +1175,38 @@ public class CreateNPCScr extends JInternalFrame {
                 return;
         }
 
-        // Force mở folder data/girlkun/icon/x4
-        File selectedFile = ImagePickerDialog.pickImage(window, title, IMAGE_DIR_PATH);
+        // Sử dụng Windows Explorer native (FileDialog)
+        Frame frame = (Frame) SwingUtilities.getWindowAncestor(this);
+        FileDialog dialog = new FileDialog(frame, title, FileDialog.LOAD);
 
-        if (selectedFile != null) {
+        // Set thư mục: ưu tiên thư mục cuối cùng đã chọn, nếu chưa có thì dùng mặc định
+        dialog.setDirectory(lastSelectedDir != null ? lastSelectedDir : IMAGE_DIR_PATH);
+
+        // Filter file ảnh
+        dialog.setFilenameFilter((dir, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg") || lower.endsWith(".gif");
+        });
+
+        dialog.setVisible(true);
+
+        String fileName = dialog.getFile();
+        if (fileName != null) {
+            // Lưu lại thư mục đã chọn để lần sau mở nhanh hơn
+            lastSelectedDir = dialog.getDirectory();
+            File selectedFile = new File(dialog.getDirectory(), fileName);
             try {
                 BufferedImage img = ImageIO.read(selectedFile);
 
                 // Extract ID from filename
-                String filename = selectedFile.getName();
-                String nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
+                String nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
                 int id = 0;
                 try {
                     id = Integer.parseInt(nameWithoutExt);
                 } catch (NumberFormatException e) {
                     id = 0;
                 }
-
-                // Không cache lastImageDir -> Luôn dùng IMAGE_DIR_PATH
 
                 switch (partType) {
                     case "head":

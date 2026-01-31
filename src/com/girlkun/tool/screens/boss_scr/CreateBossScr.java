@@ -1,6 +1,6 @@
 package com.girlkun.tool.screens.boss_scr;
 
-import com.girlkun.tool.screens.draw_map_scr.ImagePickerDialog;
+import java.awt.FileDialog;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO.PartData;
 import org.json.simple.JSONArray;
@@ -639,16 +639,29 @@ public class CreateBossScr extends JInternalFrame {
     }
 
     private void selectOutfitImage(String partType) {
-        // Open image picker using static method
-        File selectedFile = ImagePickerDialog.pickImage(
-                SwingUtilities.getWindowAncestor(this),
-                "Chọn ảnh " + partType,
-                lastImageDir);
+        // Sử dụng Windows Explorer native (FileDialog)
+        Frame frame = (Frame) SwingUtilities.getWindowAncestor(this);
+        FileDialog dialog = new FileDialog(frame, "Chọn ảnh " + partType, FileDialog.LOAD);
 
-        if (selectedFile == null)
+        // Set thư mục: ưu tiên thư mục cuối cùng đã chọn, nếu chưa có thì dùng mặc định
+        dialog.setDirectory(lastImageDir != null ? lastImageDir : ICON_PATH);
+
+        // Filter file ảnh
+        dialog.setFilenameFilter((dir, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg") || lower.endsWith(".gif");
+        });
+
+        dialog.setVisible(true);
+
+        String fileName = dialog.getFile();
+        if (fileName == null)
             return;
 
-        lastImageDir = selectedFile.getParent();
+        // Lưu lại thư mục đã chọn để lần sau mở nhanh hơn
+        lastImageDir = dialog.getDirectory();
+        File selectedFile = new File(dialog.getDirectory(), fileName);
 
         try {
             BufferedImage img = ImageIO.read(selectedFile);
