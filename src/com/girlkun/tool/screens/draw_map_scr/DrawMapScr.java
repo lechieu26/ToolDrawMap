@@ -1457,25 +1457,58 @@ public class DrawMapScr extends JInternalFrame {
          GirlkunResultSet rs = GirlkunDB.executeQuery("GIRLKUN", "select * from map_template where id = ?",
                new Object[] { mapId });
          if (rs.first()) {
-            JSONValue jv = new JSONValue();
-            JSONArray dataArray = (JSONArray) JSONValue.parse(rs.getString("data"));
-            int tileMap = Integer.parseInt(String.valueOf(dataArray.get(3)));
-            this.readTileSet(new File("data/tile/" + tileMap));
-            this.readMapdata(new File("data/girlkun/map/tile_map_data/" + mapId));
-            this.readDataBgItem(new File("data/girlkun/map/item_bg_map_data/" + mapId));
+            // Đọc tile_id trực tiếp từ cột tile_id (không cần cột data nữa)
+            int tileMap = rs.getInt("tile_id");
+
+            // Kiểm tra các file bắt buộc tồn tại
+            File tileSetFile = new File("data/tile/" + tileMap);
+            File tileMapDataFile = new File("data/girlkun/map/tile_map_data/" + mapId);
+
+            StringBuilder missingFiles = new StringBuilder();
+            if (!tileSetFile.exists()) {
+               missingFiles.append("- Tile set: ").append(tileSetFile.getPath()).append("\n");
+            }
+            if (!tileMapDataFile.exists()) {
+               missingFiles.append("- Tile map data: ").append(tileMapDataFile.getPath()).append("\n");
+            }
+
+            if (missingFiles.length() > 0) {
+               NotifyUtil.showMessageDialog(Main.I,
+                     "Không tìm thấy các file sau cho Map ID " + mapId + ":\n" + missingFiles.toString());
+               return;
+            }
+
+            this.readTileSet(tileSetFile);
+            this.readMapdata(tileMapDataFile);
+
+            // Đọc bg item data (không bắt buộc)
+            File bgItemDataFile = new File("data/girlkun/map/item_bg_map_data/" + mapId);
+            if (bgItemDataFile.exists()) {
+               this.readDataBgItem(bgItemDataFile);
+            }
+
             this.mapName = rs.getString("name");
             this.mapId = mapId;
             this.waypointList.readTextWaypoint(rs.getString("waypoints"));
             this.mobList.readTextMob(rs.getString("mobs"));
             this.npcList.readDataNpc(rs.getString("npcs"));
-            DataInputStream dis = new DataInputStream(new FileInputStream("data/girlkun/map/eff_map/" + mapId));
-            int n = dis.readShort();
 
-            for (int i = 0; i < n; i++) {
-               String key = dis.readUTF();
-               String value = dis.readUTF();
-               System.out.println(key + "- " + value);
-               this.readKeyValuesEff(key, value, mapId);
+            // Đọc effect map (không bắt buộc)
+            try {
+               File effMapFile = new File("data/girlkun/map/eff_map/" + mapId);
+               if (effMapFile.exists()) {
+                  DataInputStream dis = new DataInputStream(new FileInputStream(effMapFile));
+                  int n = dis.readShort();
+                  for (int i = 0; i < n; i++) {
+                     String key = dis.readUTF();
+                     String value = dis.readUTF();
+                     System.out.println(key + "- " + value);
+                     this.readKeyValuesEff(key, value, mapId);
+                  }
+                  dis.close();
+               }
+            } catch (Exception ex) {
+               // Bỏ qua nếu không có file effect
             }
 
             this.effectList.fillToTable();
@@ -1900,8 +1933,8 @@ public class DrawMapScr extends JInternalFrame {
          GirlkunResultSet rs = GirlkunDB.executeQuery("GIRLKUN", "select * from map_template where id = ?",
                new Object[] { mapId });
          if (rs.first()) {
-            JSONArray dataArray = (JSONArray) JSONValue.parse(rs.getString("data"));
-            int tileMap = Integer.parseInt(String.valueOf(dataArray.get(3)));
+            // Đọc tile_id trực tiếp từ cột tile_id (không cần cột data nữa)
+            int tileMap = rs.getInt("tile_id");
 
             // Kiểm tra file tile_map_data tồn tại
             File tileMapDataFile = new File("data/girlkun/map/tile_map_data/" + mapId);
