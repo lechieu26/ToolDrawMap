@@ -455,6 +455,7 @@ public class ShopManagerScr extends JInternalFrame {
         btnEdit.addActionListener(e -> editTab());
         btnDel.addActionListener(e -> deleteTab());
 
+        btns.add(btnAdd);
         btns.add(btnEdit);
         btns.add(btnDel);
 

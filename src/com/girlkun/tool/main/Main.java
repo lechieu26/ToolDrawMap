@@ -53,6 +53,7 @@ public class Main extends JFrame {
     private JButton btnCreateNPC;
     private JButton btnDbConfig;
     private JButton btnCreateBoss;
+    private JButton btnEffectEditor;
     private JDesktopPane desktop;
     private JMenu jMenu1;
     private JMenuBar jMenuBar1;
@@ -198,6 +199,16 @@ public class Main extends JFrame {
         btnCreateBoss.addActionListener(this::btnCreateBossActionPerformed);
         jToolBar1.add(btnCreateBoss);
 
+        btnEffectEditor = new JButton();
+        btnEffectEditor.setBackground(new Color(255, 105, 180)); // Hot Pink
+        btnEffectEditor.setForeground(Color.WHITE);
+        btnEffectEditor.setText("Effect editor");
+        btnEffectEditor.setFocusable(false);
+        btnEffectEditor.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnEffectEditor.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
+        btnEffectEditor.addActionListener(this::btnEffectEditorActionPerformed);
+        jToolBar1.add(btnEffectEditor);
+
         jPanel1.setPreferredSize(new Dimension(1200, 950));
         jPanel1.setLayout(new BorderLayout());
 
@@ -295,8 +306,7 @@ public class Main extends JFrame {
         }
         DrawMapScr drawMapScr = new DrawMapScr();
         desktop.add(drawMapScr);
-        JScrollBar bar = jScrollPane1.getHorizontalScrollBar();
-        drawMapScr.setLocation(bar.getValue(), 0);
+        drawMapScr.setLocation(0, 0);
         drawMapScr.setVisible(true);
     }
 
@@ -333,11 +343,33 @@ public class Main extends JFrame {
     }
 
     private void openImageScaler() {
-        openExternalTool(
-                "Image Scaler",
-                "src/ImageScaler",
-                "ImageScaler.exe",
-                "Điều chỉnh kích thước hình ảnh");
+        minimizeAllFrames();
+        // Check existing
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof com.girlkun.tool.screens.image_scaler.ImageScalerDialog) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+
+        // New instance
+        com.girlkun.tool.screens.image_scaler.ImageScalerDialog imageScaler = new com.girlkun.tool.screens.image_scaler.ImageScalerDialog();
+        desktop.add(imageScaler);
+        imageScaler.setLocation(0, 0);
+        imageScaler.setVisible(true);
+        try {
+            imageScaler.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
     private void btnTeaShopManagerActionPerformed(ActionEvent evt) {
@@ -363,8 +395,7 @@ public class Main extends JFrame {
 
         com.girlkun.tool.shopmanager.ui.ShopManagerScr scr = new com.girlkun.tool.shopmanager.ui.ShopManagerScr();
         desktop.add(scr);
-        JScrollBar bar = jScrollPane1.getHorizontalScrollBar();
-        scr.setLocation(bar.getValue() + 50, 50);
+        scr.setLocation(0, 0);
         scr.setVisible(true);
         try {
             scr.setSelected(true);
@@ -398,8 +429,7 @@ public class Main extends JFrame {
         // New instance
         CreateNPCScr createNPCScr = new CreateNPCScr();
         desktop.add(createNPCScr);
-        JScrollBar bar = jScrollPane1.getHorizontalScrollBar();
-        createNPCScr.setLocation(bar.getValue() + 50, 50);
+        createNPCScr.setLocation(0, 0);
         createNPCScr.setVisible(true);
         try {
             createNPCScr.setSelected(true);
@@ -433,8 +463,7 @@ public class Main extends JFrame {
         // New instance
         com.girlkun.tool.shopmanager.ui.DbConfigScr dbConfigScr = new com.girlkun.tool.shopmanager.ui.DbConfigScr();
         desktop.add(dbConfigScr);
-        JScrollBar bar = jScrollPane1.getHorizontalScrollBar();
-        dbConfigScr.setLocation(bar.getValue() + 50, 50);
+        dbConfigScr.setLocation(0, 0);
         dbConfigScr.setVisible(true);
         try {
             dbConfigScr.setSelected(true);
@@ -468,14 +497,25 @@ public class Main extends JFrame {
         // New instance
         com.girlkun.tool.screens.boss_scr.CreateBossScr createBossScr = new com.girlkun.tool.screens.boss_scr.CreateBossScr();
         desktop.add(createBossScr);
-        JScrollBar bar = jScrollPane1.getHorizontalScrollBar();
-        createBossScr.setLocation(bar.getValue() + 50, 50);
+        createBossScr.setLocation(0, 0);
         createBossScr.setVisible(true);
         try {
             createBossScr.setSelected(true);
         } catch (java.beans.PropertyVetoException e) {
             e.printStackTrace();
         }
+    }
+
+    private void btnEffectEditorActionPerformed(ActionEvent evt) {
+        openEffectEditor();
+    }
+
+    private void openEffectEditor() {
+        openExternalTool(
+                "Effect Editor",
+                "src/EffectEditor",
+                "EffectEditor.exe",
+                "Chỉnh sửa hiệu ứng cho game NRO");
     }
 
     private void openSpriteEditor() {
@@ -512,12 +552,8 @@ public class Main extends JFrame {
                 name, path, exe, desc);
         desktop.add(launcher);
 
-        // Position
-        JScrollBar bar = jScrollPane1.getHorizontalScrollBar();
-        int x = bar.getValue() + 100;
-        int y = 100;
-
-        launcher.setLocation(x, y);
+        // Position - neo ở góc trên bên trái
+        launcher.setLocation(0, 0);
         launcher.setVisible(true);
         try {
             launcher.setSelected(true);

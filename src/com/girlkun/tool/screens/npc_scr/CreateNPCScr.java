@@ -58,6 +58,11 @@ public class CreateNPCScr extends JInternalFrame {
     private static final int SKEL_LEG_X = -8;
     private static final int SKEL_LEG_Y = 10;
 
+    // Default Part Icon IDs (sử dụng khi chưa chọn ảnh)
+    private static final int DEFAULT_HEAD_ICON_ID = 2187;
+    private static final int DEFAULT_BODY_ICON_ID = 2188;
+    private static final int DEFAULT_LEG_ICON_ID = 2189;
+
     // Canvas
     private NPCCanvas canvas;
     private String selectedPart = null; // "head", "body", "leg"
@@ -931,22 +936,15 @@ public class CreateNPCScr extends JInternalFrame {
             JOptionPane.showMessageDialog(this, "Đã copy vào clipboard!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         });
 
-        JButton btnSavePart = new JButton("Save Part (Lưu Part)");
+        JButton btnSavePart = new JButton("Lưu Part & NPC");
         btnSavePart.setFont(new Font("SansSerif", Font.BOLD, 12));
         btnSavePart.setBackground(new Color(23, 162, 184));
         btnSavePart.setForeground(Color.WHITE);
         btnSavePart.addActionListener(e -> savePartToDB());
 
-        JButton btnSaveNpc = new JButton("Save NPC (Lưu NPC)");
-        btnSaveNpc.setFont(new Font("SansSerif", Font.BOLD, 12));
-        btnSaveNpc.setBackground(new Color(255, 193, 7));
-        btnSaveNpc.setForeground(Color.BLACK);
-        btnSaveNpc.addActionListener(e -> saveNpcToDB());
-
         btnPanel.add(btnExport);
         btnPanel.add(btnCopy);
         btnPanel.add(btnSavePart);
-        btnPanel.add(btnSaveNpc);
 
         rightPanel.add(btnPanel, BorderLayout.SOUTH);
 
@@ -959,16 +957,49 @@ public class CreateNPCScr extends JInternalFrame {
             return;
         }
 
+        // Kiểm tra xem có bộ phận nào được chọn không
+        boolean hasHead = headIconId > 0;
+        boolean hasBody = bodyIconId > 0;
+        boolean hasLeg = legIconId > 0;
+
+        // Kiểm tra xem NPC đã có các part chưa (để xác định Update hay New)
+        boolean headIsUpdate = currentNpc.head > 0 && currentNpc.head != -1;
+        boolean bodyIsUpdate = currentNpc.body > 0 && currentNpc.body != -1;
+        boolean legIsUpdate = currentNpc.leg > 0 && currentNpc.leg != -1;
+
+        // Kiểm tra xem có thay đổi gì không
+        // Có thay đổi nếu:
+        // - Có chọn part mới (hasHead/hasBody/hasLeg = true) và chưa có part đó
+        // - Hoặc đang update part đã có
+        boolean hasAnyChange = hasHead || hasBody || hasLeg;
+
+        if (!hasAnyChange) {
+            // Kiểm tra xem NPC đã có đủ part chưa
+            boolean npcHasAllDefault = (currentNpc.head == DEFAULT_HEAD_ICON_ID || currentNpc.head == -1
+                    || currentNpc.head == 0)
+                    && (currentNpc.body == DEFAULT_BODY_ICON_ID || currentNpc.body == -1 || currentNpc.body == 0)
+                    && (currentNpc.leg == DEFAULT_LEG_ICON_ID || currentNpc.leg == -1 || currentNpc.leg == 0);
+
+            if (npcHasAllDefault) {
+                JOptionPane.showMessageDialog(this,
+                        "No change - Không có thay đổi!\n\nNPC đang sử dụng tất cả default part và bạn chưa chọn ảnh nào mới.",
+                        "Thông báo",
+                        JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+        }
+
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
-            int[] targetIds;
+            int savedPartCount = 0;
+            int finalHeadPartId, finalBodyPartId, finalLegPartId;
 
             @Override
             protected Void doInBackground() {
                 try {
                     int currentMax = ShopManagerDAO.gI().getMaxPartId();
 
-                    // Use reuse logic
-                    targetIds = calculateTargetPartIds(currentMax);
+                    // Tính toán Part ID sẽ được tạo mới hoặc reuse
+                    int[] targetIds = calculateTargetPartIds(currentMax);
                     int saveHeadId = targetIds[0];
                     int saveBodyId = targetIds[1];
                     int saveLegId = targetIds[2];
@@ -981,42 +1012,143 @@ public class CreateNPCScr extends JInternalFrame {
                     int lX = legPos.x / 4;
                     int lY = legPos.y / 4;
 
+                    // Build message cho Part
+                    StringBuilder msgBuilder = new StringBuilder();
+                    msgBuilder.append("=== LƯU PART & CẬP NHẬT NPC ===\n\n");
+                    msgBuilder.append("NPC: ").append(currentNpc.name).append(" (ID: ").append(currentNpc.id)
+                            .append(")\n\n");
+                    msgBuilder.append("--- PART SẼ LƯU ---\n\n");
+
+                    String sbHead = null, sbBody = null, sbLeg = null;
+
                     // 1. Head Data
-                    StringBuilder sbHead = new StringBuilder();
-                    sbHead.append("[[").append(headIconId).append(",").append(hX).append(",").append(hY).append("]");
-                    for (int i = 0; i < 2; i++)
-                        sbHead.append(",[2955,0,0]");
-                    sbHead.append("]");
+                    if (hasHead) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("[[").append(headIconId).append(",").append(hX).append(",").append(hY).append("]");
+                        for (int i = 0; i < 2; i++)
+                            sb.append(",[2955,0,0]");
+                        sb.append("]");
+                        sbHead = sb.toString();
+                        String headStatus = headIsUpdate ? "[UPDATE]" : "[NEW]";
+                        msgBuilder.append("HEAD ").append(headStatus).append(" (ID: ").append(saveHeadId).append("):\n")
+                                .append(sbHead).append("\n\n");
+                    } else {
+                        msgBuilder.append("HEAD: Bỏ qua (dùng default ").append(DEFAULT_HEAD_ICON_ID).append(")\n\n");
+                    }
 
                     // 2. Body Data
-                    StringBuilder sbBody = new StringBuilder();
-                    sbBody.append("[[2955,0,0],[").append(bodyIconId).append(",").append(bX).append(",").append(bY)
-                            .append("]");
-                    for (int i = 0; i < 15; i++)
-                        sbBody.append(",[2955,0,0]");
-                    sbBody.append("]");
+                    if (hasBody) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("[[2955,0,0],[").append(bodyIconId).append(",").append(bX).append(",").append(bY)
+                                .append("]");
+                        for (int i = 0; i < 15; i++)
+                            sb.append(",[2955,0,0]");
+                        sb.append("]");
+                        sbBody = sb.toString();
+                        String bodyStatus = bodyIsUpdate ? "[UPDATE]" : "[NEW]";
+                        msgBuilder.append("BODY ").append(bodyStatus).append(" (ID: ").append(saveBodyId).append("):\n")
+                                .append(sbBody).append("\n\n");
+                    } else {
+                        msgBuilder.append("BODY: Bỏ qua (dùng default ").append(DEFAULT_BODY_ICON_ID).append(")\n\n");
+                    }
 
                     // 3. Leg Data
-                    StringBuilder sbLeg = new StringBuilder();
-                    sbLeg.append("[[2955,0,0],[").append(legIconId).append(",").append(lX).append(",").append(lY)
-                            .append("]");
-                    for (int i = 0; i < 12; i++)
-                        sbLeg.append(",[2955,0,0]");
-                    sbLeg.append("]");
+                    if (hasLeg) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("[[2955,0,0],[").append(legIconId).append(",").append(lX).append(",").append(lY)
+                                .append("]");
+                        for (int i = 0; i < 12; i++)
+                            sb.append(",[2955,0,0]");
+                        sb.append("]");
+                        sbLeg = sb.toString();
+                        String legStatus = legIsUpdate ? "[UPDATE]" : "[NEW]";
+                        msgBuilder.append("LEG ").append(legStatus).append(" (ID: ").append(saveLegId).append("):\n")
+                                .append(sbLeg).append("\n\n");
+                    } else {
+                        msgBuilder.append("LEG: Bỏ qua (dùng default ").append(DEFAULT_LEG_ICON_ID).append(")\n\n");
+                    }
 
-                    String message = "Bạn có chắc muốn lưu 3 Part với thông tin sau?\n" +
-                            (currentNpc.head != -1 ? "(Cập nhật ID cũ)" : "(Tạo mới ID)") + "\n\n" +
-                            "HEAD (ID: " + saveHeadId + "):\n" + sbHead.toString() + "\n\n" +
-                            "BODY (ID: " + saveBodyId + "):\n" + sbBody.toString() + "\n\n" +
-                            "LEG (ID: " + saveLegId + "):\n" + sbLeg.toString();
+                    // Tính Part ID cuối cùng cho NPC
+                    // - Nếu đã chọn ảnh mới: sử dụng saveHeadId/saveBodyId/saveLegId (đã được tính
+                    // từ calculateTargetPartIds)
+                    // - Nếu không chọn ảnh mới: giữ nguyên Part ID cũ của NPC (nếu có), hoặc dùng
+                    // default
+                    finalHeadPartId = hasHead ? saveHeadId
+                            : (currentNpc.head > 0 ? currentNpc.head : DEFAULT_HEAD_ICON_ID);
+                    finalBodyPartId = hasBody ? saveBodyId
+                            : (currentNpc.body > 0 ? currentNpc.body : DEFAULT_BODY_ICON_ID);
+                    finalLegPartId = hasLeg ? saveLegId : (currentNpc.leg > 0 ? currentNpc.leg : DEFAULT_LEG_ICON_ID);
 
-                    int option = JOptionPane.showConfirmDialog(CreateNPCScr.this, message, "Xác nhận Save Part",
+                    // Kiểm tra có thay đổi gì không
+                    boolean npcHeadChanged = finalHeadPartId != currentNpc.head;
+                    boolean npcBodyChanged = finalBodyPartId != currentNpc.body;
+                    boolean npcLegChanged = finalLegPartId != currentNpc.leg;
+                    boolean hasNpcChange = npcHeadChanged || npcBodyChanged || npcLegChanged;
+
+                    msgBuilder.append("--- NPC SẼ CẬP NHẬT ---\n\n");
+                    if (!hasNpcChange) {
+                        msgBuilder.append("(Không có thay đổi - giữ nguyên Part IDs)\n\n");
+                    }
+
+                    // Hiển thị trạng thái cho từng Part:
+                    // - [UPDATE]: đã có part và đang thay đổi
+                    // - [NEW]: chưa có part và đang thêm mới
+                    // - (giữ nguyên): không thay đổi
+                    // - (default): dùng default
+                    String headNpcStatus;
+                    if (hasHead) {
+                        headNpcStatus = headIsUpdate ? " [UPDATE]" : " [NEW]";
+                    } else if (npcHeadChanged) {
+                        headNpcStatus = " [CHANGED]";
+                    } else {
+                        headNpcStatus = currentNpc.head > 0 ? " (giữ nguyên)" : " (default)";
+                    }
+
+                    String bodyNpcStatus;
+                    if (hasBody) {
+                        bodyNpcStatus = bodyIsUpdate ? " [UPDATE]" : " [NEW]";
+                    } else if (npcBodyChanged) {
+                        bodyNpcStatus = " [CHANGED]";
+                    } else {
+                        bodyNpcStatus = currentNpc.body > 0 ? " (giữ nguyên)" : " (default)";
+                    }
+
+                    String legNpcStatus;
+                    if (hasLeg) {
+                        legNpcStatus = legIsUpdate ? " [UPDATE]" : " [NEW]";
+                    } else if (npcLegChanged) {
+                        legNpcStatus = " [CHANGED]";
+                    } else {
+                        legNpcStatus = currentNpc.leg > 0 ? " (giữ nguyên)" : " (default)";
+                    }
+
+                    msgBuilder.append("Head Part ID: ").append(finalHeadPartId).append(headNpcStatus).append("\n");
+                    msgBuilder.append("Body Part ID: ").append(finalBodyPartId).append(bodyNpcStatus).append("\n");
+                    msgBuilder.append("Leg Part ID: ").append(finalLegPartId).append(legNpcStatus);
+
+                    int option = JOptionPane.showConfirmDialog(CreateNPCScr.this, msgBuilder.toString(),
+                            "Xác nhận Lưu Part & Cập nhật NPC",
                             JOptionPane.YES_NO_OPTION);
 
                     if (option == JOptionPane.YES_OPTION) {
-                        ShopManagerDAO.gI().insertOrUpdatePart(saveHeadId, 0, sbHead.toString());
-                        ShopManagerDAO.gI().insertOrUpdatePart(saveBodyId, 1, sbBody.toString());
-                        ShopManagerDAO.gI().insertOrUpdatePart(saveLegId, 2, sbLeg.toString());
+                        // 1. Save Parts trước
+                        if (hasHead && sbHead != null) {
+                            ShopManagerDAO.gI().insertOrUpdatePart(saveHeadId, 0, sbHead);
+                            savedPartCount++;
+                        }
+                        if (hasBody && sbBody != null) {
+                            ShopManagerDAO.gI().insertOrUpdatePart(saveBodyId, 1, sbBody);
+                            savedPartCount++;
+                        }
+                        if (hasLeg && sbLeg != null) {
+                            ShopManagerDAO.gI().insertOrUpdatePart(saveLegId, 2, sbLeg);
+                            savedPartCount++;
+                        }
+
+                        // 2. Update NPC với các Part ID mới
+                        ShopManagerDAO.gI().updateNpcTemplateParts(currentNpc.id, finalHeadPartId, finalBodyPartId,
+                                finalLegPartId);
+
                         return null;
                     } else {
                         throw new Exception("Người dùng đã hủy bỏ.");
@@ -1031,75 +1163,24 @@ public class CreateNPCScr extends JInternalFrame {
             protected void done() {
                 try {
                     get();
-                    JOptionPane.showMessageDialog(CreateNPCScr.this, "Đã lưu 3 Part thành công!", "Thông báo",
+
+                    StringBuilder successMsg = new StringBuilder();
+                    successMsg.append("✓ Đã lưu ").append(savedPartCount).append(" Part thành công!\n");
+                    successMsg.append("✓ Đã cập nhật NPC (ID ").append(currentNpc.id).append(") thành công!\n\n");
+                    successMsg.append("Part IDs:\n");
+                    successMsg.append("- Head: ").append(finalHeadPartId).append(hasHead ? "" : " (default)")
+                            .append("\n");
+                    successMsg.append("- Body: ").append(finalBodyPartId).append(hasBody ? "" : " (default)")
+                            .append("\n");
+                    successMsg.append("- Leg: ").append(finalLegPartId).append(hasLeg ? "" : " (default)");
+
+                    JOptionPane.showMessageDialog(CreateNPCScr.this, successMsg.toString(),
+                            "Thành công",
                             JOptionPane.INFORMATION_MESSAGE);
 
-                    // Update currentNpc memory and reload list to reflect changes (especially if
-                    // new parts created)
-                    if (targetIds != null && currentNpc != null) {
-                        currentNpc.head = targetIds[0];
-                        currentNpc.body = targetIds[1];
-                        currentNpc.leg = targetIds[2];
-                    }
+                    // Reload list và select lại NPC hiện tại
                     loadNpcListAsyncAndSelect(currentNpc.id);
 
-                } catch (Exception e) {
-                    if (!e.getMessage().contains("hủy bỏ")) {
-                        JOptionPane.showMessageDialog(CreateNPCScr.this, "Lỗi/Hủy: " + e.getMessage(), "Thông báo",
-                                JOptionPane.ERROR_MESSAGE);
-                    }
-                }
-            }
-        };
-        worker.execute();
-    }
-
-    private void saveNpcToDB() {
-        if (currentNpc == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn NPC trước!", "Lỗi", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        SwingWorker<Void, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Void doInBackground() {
-                try {
-                    int maxNow = ShopManagerDAO.gI().getMaxPartId();
-
-                    int headPart = maxNow - 2;
-                    int bodyPart = maxNow - 1;
-                    int legPart = maxNow;
-
-                    String message = "Bạn có chắc muốn cập nhật NPC [" + currentNpc.id + " - " + currentNpc.name
-                            + "] trỏ tới 3 Part mới nhất (Vừa tạo)?\n\n" +
-                            "Head Part ID: " + headPart + "\n" +
-                            "Body Part ID: " + bodyPart + "\n" +
-                            "Leg Part ID: " + legPart;
-
-                    int option = JOptionPane.showConfirmDialog(CreateNPCScr.this, message, "Xác nhận Save NPC",
-                            JOptionPane.YES_NO_OPTION);
-
-                    if (option == JOptionPane.YES_OPTION) {
-                        ShopManagerDAO.gI().updateNpcTemplateParts(currentNpc.id, headPart, bodyPart, legPart);
-                    } else {
-                        throw new Exception("Người dùng đã hủy bỏ.");
-                    }
-
-                } catch (Exception e) {
-                    throw new RuntimeException(e.getMessage());
-                }
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    get();
-                    JOptionPane.showMessageDialog(CreateNPCScr.this,
-                            "Đã update NPC (ID " + currentNpc.id + ") trỏ tới 3 Part mới nhất!", "Thông báo",
-                            JOptionPane.INFORMATION_MESSAGE);
-                    // Reload list
-                    loadNpcListAsyncAndSelect(currentNpc.id);
                 } catch (Exception e) {
                     if (!e.getMessage().contains("hủy bỏ")) {
                         JOptionPane.showMessageDialog(CreateNPCScr.this, "Lỗi/Hủy: " + e.getMessage(), "Thông báo",
@@ -1327,51 +1408,74 @@ public class CreateNPCScr extends JInternalFrame {
                     sb.append("Avatar ID: ").append(avatarId).append("\n\n");
 
                     sb.append("Part IDs:\n");
-                    sb.append("- Head Part ID: ").append(displayHeadId)
-                            .append(currentNpc != null && currentNpc.head == displayHeadId ? " (Update Old)" : " (New)")
-                            .append("\n");
-                    sb.append("- Body Part ID: ").append(displayBodyId)
-                            .append(currentNpc != null && currentNpc.body == displayBodyId ? " (Update Old)" : " (New)")
-                            .append("\n");
-                    sb.append("- Leg Part ID: ").append(displayLegId)
-                            .append(currentNpc != null && currentNpc.leg == displayLegId ? " (Update Old)" : " (New)")
-                            .append("\n\n");
+                    // Head
+                    if (headIconId <= 0) {
+                        sb.append("- Head Part ID: default ").append(DEFAULT_HEAD_ICON_ID).append("\n");
+                    } else {
+                        sb.append("- Head Part ID: ").append(displayHeadId)
+                                .append(currentNpc != null && currentNpc.head == displayHeadId ? " (Update Old)"
+                                        : " (New)")
+                                .append("\n");
+                    }
+                    // Body
+                    if (bodyIconId <= 0) {
+                        sb.append("- Body Part ID: default ").append(DEFAULT_BODY_ICON_ID).append("\n");
+                    } else {
+                        sb.append("- Body Part ID: ").append(displayBodyId)
+                                .append(currentNpc != null && currentNpc.body == displayBodyId ? " (Update Old)"
+                                        : " (New)")
+                                .append("\n");
+                    }
+                    // Leg
+                    if (legIconId <= 0) {
+                        sb.append("- Leg Part ID: default ").append(DEFAULT_LEG_ICON_ID).append("\n\n");
+                    } else {
+                        sb.append("- Leg Part ID: ").append(displayLegId)
+                                .append(currentNpc != null && currentNpc.leg == displayLegId ? " (Update Old)"
+                                        : " (New)")
+                                .append("\n\n");
+                    }
 
                     sb.append("=== Path Data ===\n\n");
 
-                    // Head Path (Type 0) - Total 3 elements
-                    // Index 0: Image
-                    // Index 1-2: 2955
+                    // Head Path (Type 0)
                     sb.append("Head Path (Type 0):\n");
-                    sb.append("[[").append(headIconId).append(",").append(headX).append(",").append(headY).append("]");
-                    for (int i = 0; i < 2; i++) {
-                        sb.append(",[2955,0,0]");
+                    if (headIconId <= 0) {
+                        sb.append("default ").append(DEFAULT_HEAD_ICON_ID).append("\n\n");
+                    } else {
+                        sb.append("[[").append(headIconId).append(",").append(headX).append(",").append(headY)
+                                .append("]");
+                        for (int i = 0; i < 2; i++) {
+                            sb.append(",[2955,0,0]");
+                        }
+                        sb.append("]\n\n");
                     }
-                    sb.append("]\n\n");
 
-                    // Body Path (Type 1) - Total 17 elements
-                    // Index 0: 2955
-                    // Index 1: Image
-                    // Index 2-16: 2955
+                    // Body Path (Type 1)
                     sb.append("Body Path (Type 1):\n");
-                    sb.append("[[2955,0,0],[").append(bodyIconId).append(",").append(bodyX).append(",").append(bodyY)
-                            .append("]");
-                    for (int i = 0; i < 15; i++) {
-                        sb.append(",[2955,0,0]");
+                    if (bodyIconId <= 0) {
+                        sb.append("default ").append(DEFAULT_BODY_ICON_ID).append("\n\n");
+                    } else {
+                        sb.append("[[2955,0,0],[").append(bodyIconId).append(",").append(bodyX).append(",")
+                                .append(bodyY).append("]");
+                        for (int i = 0; i < 15; i++) {
+                            sb.append(",[2955,0,0]");
+                        }
+                        sb.append("]\n\n");
                     }
-                    sb.append("]\n\n");
 
-                    // Leg Path (Type 2) - Total 14 elements
-                    // Index 0: 2955
-                    // Index 1: Image
-                    // Index 2-13: 2955
+                    // Leg Path (Type 2)
                     sb.append("Leg Path (Type 2):\n");
-                    sb.append("[[2955,0,0],[").append(legIconId).append(",").append(legX).append(",").append(legY)
-                            .append("]");
-                    for (int i = 0; i < 12; i++) {
-                        sb.append(",[2955,0,0]");
+                    if (legIconId <= 0) {
+                        sb.append("default ").append(DEFAULT_LEG_ICON_ID);
+                    } else {
+                        sb.append("[[2955,0,0],[").append(legIconId).append(",").append(legX).append(",").append(legY)
+                                .append("]");
+                        for (int i = 0; i < 12; i++) {
+                            sb.append(",[2955,0,0]");
+                        }
+                        sb.append("]");
                     }
-                    sb.append("]");
 
                     outputTextArea.setText(sb.toString());
 
