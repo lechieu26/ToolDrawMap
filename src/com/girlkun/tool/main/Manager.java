@@ -97,7 +97,7 @@ public class Manager {
       EffectTemplate eff = null;
 
       try {
-         java.io.File file = new java.io.File("data/girlkun/effdata/x1/" + id);
+         java.io.File file = new java.io.File("data/data/effdata/x1/" + id);
          if (!file.exists()) {
             return null;
          }
@@ -309,7 +309,7 @@ public class Manager {
 
    private void loadTileType() {
       try {
-         DataInputStream dis = new DataInputStream(new FileInputStream("data/girlkun/map/tile_set_info"));
+         DataInputStream dis = new DataInputStream(new FileInputStream("data/data/map/tile_set_info"));
          int nTileset = dis.readUnsignedByte();
 
          for (int i = 0; i < nTileset; i++) {

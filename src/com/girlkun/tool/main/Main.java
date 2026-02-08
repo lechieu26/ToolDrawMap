@@ -4,6 +4,7 @@ import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
 import com.girlkun.database.GirlkunDB;
 import com.girlkun.tool.screens.draw_map_scr.DrawMapScr;
 import com.girlkun.tool.screens.npc_scr.CreateNPCScr;
+import com.girlkun.tool.screens.server.ServerRunnerScr;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -52,6 +53,7 @@ public class Main extends JFrame {
     private JButton btnTeaShopManager;
     private JButton btnCreateNPC;
     private JButton btnDbConfig;
+    private JButton btnRunServer;
     private JButton btnCreateBoss;
     private JButton btnEffectEditor;
     private JDesktopPane desktop;
@@ -118,6 +120,16 @@ public class Main extends JFrame {
         btnDbConfig.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
         btnDbConfig.addActionListener(this::btnDbConfigActionPerformed);
         jToolBar1.add(btnDbConfig);
+
+        btnRunServer = new JButton();
+        btnRunServer.setBackground(new Color(255, 69, 0));
+        btnRunServer.setForeground(Color.WHITE);
+        btnRunServer.setText("Run Server");
+        btnRunServer.setFocusable(false);
+        btnRunServer.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnRunServer.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
+        btnRunServer.addActionListener(this::btnRunServerActionPerformed);
+        jToolBar1.add(btnRunServer);
 
         btnDrawMapToolbar = new JButton();
         btnDrawMapToolbar.setBackground(new Color(0, 153, 204));
@@ -433,6 +445,40 @@ public class Main extends JFrame {
         createNPCScr.setVisible(true);
         try {
             createNPCScr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void btnRunServerActionPerformed(ActionEvent evt) {
+        openServerRunner();
+    }
+
+    private void openServerRunner() {
+        minimizeAllFrames();
+        // Check existing
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof ServerRunnerScr) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+
+        // New instance
+        ServerRunnerScr serverRunnerScr = new ServerRunnerScr();
+        desktop.add(serverRunnerScr);
+        serverRunnerScr.setLocation(0, 0);
+        serverRunnerScr.setVisible(true);
+        try {
+            serverRunnerScr.setSelected(true);
         } catch (java.beans.PropertyVetoException e) {
             e.printStackTrace();
         }

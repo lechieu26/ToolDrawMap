@@ -44,7 +44,7 @@ public class GiftcodeRenderers {
         return name;
     }
 
-    private static final String ICON_PATH = "data/girlkun/icon/x4/"; // User requested x4
+    private static final String ICON_PATH = "data/data/icon/x4/"; // User requested x4
 
     public static Image getItemIcon(int tempId, ShopManagerDAO dao) {
         if (iconCache.containsKey(tempId)) {

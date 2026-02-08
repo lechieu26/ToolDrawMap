@@ -26,8 +26,8 @@ public class TilesetEditorDialog extends JFrame {
     }
 
     // Output paths (relative)
-    private static final String TILE_SET_INFO_PATH = "data/girlkun/map/tile_set_info";
-    private static final String RES_BASE_PATH = "data/girlkun/res";
+    private static final String TILE_SET_INFO_PATH = "data/data/map/tile_set_info";
+    private static final String RES_BASE_PATH = "data/data/res";
     private static final String TILE_PATH = "data/tile";
 
     // Cache thư mục cuối cùng đã chọn
@@ -94,11 +94,12 @@ public class TilesetEditorDialog extends JFrame {
     }
 
     private void loadIcons() {
-        iconFolder = loadIcon("data/folder.png", 16, 16);
-        iconEdit = loadIcon("data/edit.png", 16, 16);
-        iconCancel = loadIcon("data/cancel.png", 16, 16);
-        iconTrash = loadIcon("data/trash.png", 14, 14);
-        iconDelete = loadIcon("data/delete.png", 12, 12);
+        String dataDir = "data/tool_icons/";
+        iconFolder = loadIcon(dataDir + "folder.png", 16, 16);
+        iconEdit = loadIcon(dataDir + "edit.png", 16, 16);
+        iconCancel = loadIcon(dataDir + "cancel.png", 16, 16);
+        iconTrash = loadIcon(dataDir + "trash.png", 14, 14);
+        iconDelete = loadIcon(dataDir + "delete.png", 12, 12);
     }
 
     private ImageIcon loadIcon(String path, int width, int height) {
@@ -1112,10 +1113,10 @@ public class TilesetEditorDialog extends JFrame {
                 ║  ──────────────────────────────────────────────────────────────  ║
                 ║                                                                  ║
                 ║  1. Ảnh tile riêng lẻ (cho client):                              ║
-                ║     - data/girlkun/res/x1/<ID>$<index>.png                       ║
-                ║     - data/girlkun/res/x2/<ID>$<index>.png                       ║
-                ║     - data/girlkun/res/x3/<ID>$<index>.png                       ║
-                ║     - data/girlkun/res/x4/<ID>$<index>.png                       ║
+                ║     - data/data/res/x1/<ID>$<index>.png                       ║
+                ║     - data/data/res/x2/<ID>$<index>.png                       ║
+                ║     - data/data/res/x3/<ID>$<index>.png                       ║
+                ║     - data/data/res/x4/<ID>$<index>.png                       ║
                 ║     - Mỗi zoom level có thư mục riêng (x1=24px, x4=96px)         ║
                 ║                                                                  ║
                 ║  2. Tile strip (cho tool vẽ map):                                ║
@@ -1123,7 +1124,7 @@ public class TilesetEditorDialog extends JFrame {
                 ║     - Ảnh dạng strip dọc 24px width, dùng trong DrawMapScr       ║
                 ║                                                                  ║
                 ║  3. Thông tin collision:                                         ║
-                ║     - data/girlkun/map/tile_set_info                             ║
+                ║     - data/data/map/tile_set_info                             ║
                 ║     - Binary file chứa collision data của tất cả tileset         ║
                 ║     - Copy file này vào server và client res                     ║
                 ║                                                                  ║

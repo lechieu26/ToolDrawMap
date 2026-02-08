@@ -28,7 +28,7 @@ public class CreateNPCScr extends JInternalFrame {
 
     // Cache thư mục đã chọn (dùng chung)
     private static String lastImageDir = System.getProperty("user.home");
-    private static final String ICON_PATH = "data/girlkun/icon/x4";
+    private static final String ICON_PATH = "data/data/icon/x4";
 
     // Avatar
     private BufferedImage avatarImage;
@@ -1193,7 +1193,7 @@ public class CreateNPCScr extends JInternalFrame {
     }
 
     // Đường dẫn mặc định
-    private static final String IMAGE_DIR_PATH = System.getProperty("user.dir") + "/data/girlkun/icon/x4";
+    private static final String IMAGE_DIR_PATH = System.getProperty("user.dir") + "/data/data/icon/x4";
     // Cache thư mục cuối cùng đã chọn (dùng chung cho cả avatar và part)
     private static String lastSelectedDir = null;
 

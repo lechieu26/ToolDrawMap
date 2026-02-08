@@ -29,13 +29,13 @@ public class Util {
 
    public static BufferedImage changeRed(BufferedImage img) {
       BufferedImage i = new BufferedImage(img.getWidth(), img.getHeight(), 2);
-      Graphics2D gi = (Graphics2D)i.getGraphics();
+      Graphics2D gi = (Graphics2D) i.getGraphics();
       gi.drawImage(img, 0, 0, null);
       WritableRaster raster = i.getRaster();
 
       for (int xx = 0; xx < i.getWidth(); xx++) {
          for (int yy = 0; yy < i.getHeight(); yy++) {
-            int[] pixels = raster.getPixel(xx, yy, (int[])null);
+            int[] pixels = raster.getPixel(xx, yy, (int[]) null);
             pixels[0] = 255;
             pixels[1] = 0;
             pixels[2] = 0;
@@ -58,15 +58,15 @@ public class Util {
    }
 
    public static boolean canDoLastTime(long lastTime, int timeDo) {
-      return System.currentTimeMillis() - lastTime >= (long)timeDo;
+      return System.currentTimeMillis() - lastTime >= (long) timeDo;
    }
 
    public static BufferedImage getImageById(int id, int zoomSize) throws Exception {
-      return ImageIO.read(new File("data/girlkun/icon/x" + zoomSize + "/" + id + ".png"));
+      return ImageIO.read(new File("data/data/icon/x" + zoomSize + "/" + id + ".png"));
    }
 
    public static BufferedImage getBgImageById(int id, int zoomSize) throws Exception {
-      return ImageIO.read(new File("data/girlkun/item_bg_temp/x" + zoomSize + "/" + id + ".png"));
+      return ImageIO.read(new File("data/data/item_bg_temp/x" + zoomSize + "/" + id + ".png"));
    }
 
    public static BufferedImage getImageMobById(int id, int f) throws Exception {
@@ -110,13 +110,14 @@ public class Util {
          JSONValue jv = new JSONValue();
 
          while (rs.next()) {
-            JSONArray dataArray = (JSONArray)JSONValue.parse(rs.getString("npcs").replaceAll("\\\"", ""));
+            JSONArray dataArray = (JSONArray) JSONValue.parse(rs.getString("npcs").replaceAll("\\\"", ""));
             if (dataArray.size() != 0) {
                for (int i = 0; i < dataArray.size(); i++) {
-                  JSONArray npc = (JSONArray)JSONValue.parse(String.valueOf(dataArray.get(i)));
+                  JSONArray npc = (JSONArray) JSONValue.parse(String.valueOf(dataArray.get(i)));
                   int id = Integer.parseInt(String.valueOf(npc.get(0)));
                   int avatar = Integer.parseInt(String.valueOf(npc.get(3)));
-                  GirlkunDB.executeUpdate("GIRLKUN", "update npc_template set avatar = ? where id = ?", new Object[]{avatar, id});
+                  GirlkunDB.executeUpdate("GIRLKUN", "update npc_template set avatar = ? where id = ?",
+                        new Object[] { avatar, id });
                }
             }
          }
@@ -135,8 +136,7 @@ public class Util {
       int minRight = width - 1;
 
       int minBottom;
-      label81:
-      for (minBottom = height - 1; top <= bottom; top++) {
+      label81: for (minBottom = height - 1; top <= bottom; top++) {
          for (int x = 0; x < width; x++) {
             if (raster.getSample(x, top, 0) != 0) {
                minRight = x;
@@ -146,8 +146,7 @@ public class Util {
          }
       }
 
-      label70:
-      while (left < minRight) {
+      label70: while (left < minRight) {
          for (int y = height - 1; y > top; y--) {
             if (raster.getSample(left, y, 0) != 0) {
                minBottom = y;
@@ -158,8 +157,7 @@ public class Util {
          left++;
       }
 
-      label59:
-      while (bottom > minBottom) {
+      label59: while (bottom > minBottom) {
          for (int xx = width - 1; xx >= left; xx--) {
             if (raster.getSample(xx, bottom, 0) != 0) {
                minRight = xx;
@@ -170,8 +168,7 @@ public class Util {
          bottom--;
       }
 
-      label48:
-      while (right > minRight) {
+      label48: while (right > minRight) {
          for (int yx = bottom; yx >= top; yx--) {
             if (raster.getSample(right, yx, 0) != 0) {
                break label48;

@@ -11,7 +11,7 @@ import java.util.Properties;
  * ConfigManager - Đọc/ghi cấu hình Database từ file config.properties
  */
 public class ConfigManager {
-    private static final String CONFIG_FILE = "data/girlkun/config/config.properties";
+    private static final String CONFIG_FILE = "data/data/config/config.properties";
 
     public static DbConfig load() {
         File file = new File(CONFIG_FILE);

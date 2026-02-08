@@ -38,7 +38,7 @@ import java.util.Map;
 public class CreateBossScr extends JInternalFrame {
 
     // Icon path
-    private static final String ICON_PATH = "data/girlkun/icon/x4";
+    private static final String ICON_PATH = "data/data/icon/x4";
     private static String lastImageDir = new File(ICON_PATH).getAbsolutePath();
 
     // Outfit images

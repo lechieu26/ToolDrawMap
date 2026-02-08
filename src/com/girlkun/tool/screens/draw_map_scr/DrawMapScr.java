@@ -416,7 +416,7 @@ public class DrawMapScr extends JInternalFrame {
          Graphics2D g = eraser.createGraphics();
 
          try {
-            BufferedImage e = Util.getImageByPath("data/eraser.png");
+            BufferedImage e = Util.getImageByPath("data/tool_icons/eraser.png");
             g.drawImage(e, 0, 0, null);
          } catch (Exception var10) {
             var10.printStackTrace();
@@ -1184,7 +1184,7 @@ public class DrawMapScr extends JInternalFrame {
 
    private void button1ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/girlkun/map/tile_map_data");
+         JFileChooser fileChooser = new JFileChooser("data/data/map/tile_map_data");
          if (fileChooser.showOpenDialog(Main.I) == 0) {
             try {
                File file = fileChooser.getSelectedFile();
@@ -1274,7 +1274,7 @@ public class DrawMapScr extends JInternalFrame {
 
    private void button6ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/girlkun/map/item_bg_map_data");
+         JFileChooser fileChooser = new JFileChooser("data/data/map/item_bg_map_data");
          if (fileChooser.showOpenDialog(Main.I) == 0) {
             try {
                this.readDataBgItem(fileChooser.getSelectedFile());
@@ -1462,7 +1462,7 @@ public class DrawMapScr extends JInternalFrame {
 
             // Kiểm tra các file bắt buộc tồn tại
             File tileSetFile = new File("data/tile/" + tileMap);
-            File tileMapDataFile = new File("data/girlkun/map/tile_map_data/" + mapId);
+            File tileMapDataFile = new File("data/data/map/tile_map_data/" + mapId);
 
             StringBuilder missingFiles = new StringBuilder();
             if (!tileSetFile.exists()) {
@@ -1482,7 +1482,7 @@ public class DrawMapScr extends JInternalFrame {
             this.readMapdata(tileMapDataFile);
 
             // Đọc bg item data (không bắt buộc)
-            File bgItemDataFile = new File("data/girlkun/map/item_bg_map_data/" + mapId);
+            File bgItemDataFile = new File("data/data/map/item_bg_map_data/" + mapId);
             if (bgItemDataFile.exists()) {
                this.readDataBgItem(bgItemDataFile);
             }
@@ -1495,7 +1495,7 @@ public class DrawMapScr extends JInternalFrame {
 
             // Đọc effect map (không bắt buộc)
             try {
-               File effMapFile = new File("data/girlkun/map/eff_map/" + mapId);
+               File effMapFile = new File("data/data/map/eff_map/" + mapId);
                if (effMapFile.exists()) {
                   DataInputStream dis = new DataInputStream(new FileInputStream(effMapFile));
                   int n = dis.readShort();
@@ -1937,7 +1937,7 @@ public class DrawMapScr extends JInternalFrame {
             int tileMap = rs.getInt("tile_id");
 
             // Kiểm tra file tile_map_data tồn tại
-            File tileMapDataFile = new File("data/girlkun/map/tile_map_data/" + mapId);
+            File tileMapDataFile = new File("data/data/map/tile_map_data/" + mapId);
             if (!tileMapDataFile.exists()) {
                NotifyUtil.showMessageDialog(Main.I, "Không tìm thấy file tile_map_data cho map ID: " + mapId
                      + "\nĐường dẫn: " + tileMapDataFile.getAbsolutePath());
@@ -1956,7 +1956,7 @@ public class DrawMapScr extends JInternalFrame {
             this.readMapdata(tileMapDataFile);
 
             // Kiểm tra và đọc bg item data (không bắt buộc)
-            File bgItemFile = new File("data/girlkun/map/item_bg_map_data/" + mapId);
+            File bgItemFile = new File("data/data/map/item_bg_map_data/" + mapId);
             if (bgItemFile.exists()) {
                this.readDataBgItem(bgItemFile);
             }
@@ -1969,7 +1969,7 @@ public class DrawMapScr extends JInternalFrame {
 
             // Đọc effect map (không bắt buộc)
             try {
-               File effMapFile = new File("data/girlkun/map/eff_map/" + mapId);
+               File effMapFile = new File("data/data/map/eff_map/" + mapId);
                if (effMapFile.exists()) {
                   DataInputStream dis = new DataInputStream(new FileInputStream(effMapFile));
                   int n = dis.readShort();
@@ -1998,7 +1998,7 @@ public class DrawMapScr extends JInternalFrame {
 
    private void button24ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/girlkun/map/eff_map");
+         JFileChooser fileChooser = new JFileChooser("data/data/map/eff_map");
          if (fileChooser.showOpenDialog(Main.I) == 0) {
             try {
                DataInputStream dis = new DataInputStream(new FileInputStream(fileChooser.getSelectedFile()));
