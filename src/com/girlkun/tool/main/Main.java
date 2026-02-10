@@ -5,6 +5,7 @@ import com.girlkun.database.GirlkunDB;
 import com.girlkun.tool.screens.draw_map_scr.DrawMapScr;
 import com.girlkun.tool.screens.npc_scr.CreateNPCScr;
 import com.girlkun.tool.screens.server.ServerRunnerScr;
+import com.girlkun.tool.screens.mob_reward.MobRewardScr;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -56,6 +57,7 @@ public class Main extends JFrame {
     private JButton btnRunServer;
     private JButton btnCreateBoss;
     private JButton btnEffectEditor;
+    private JButton btnMobReward;
     private JDesktopPane desktop;
     private JMenu jMenu1;
     private JMenuBar jMenuBar1;
@@ -220,6 +222,16 @@ public class Main extends JFrame {
         btnEffectEditor.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
         btnEffectEditor.addActionListener(this::btnEffectEditorActionPerformed);
         jToolBar1.add(btnEffectEditor);
+
+        btnMobReward = new JButton();
+        btnMobReward.setBackground(new Color(255, 140, 0)); // Dark Orange
+        btnMobReward.setForeground(Color.WHITE);
+        btnMobReward.setText("Mob Reward");
+        btnMobReward.setFocusable(false);
+        btnMobReward.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnMobReward.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
+        btnMobReward.addActionListener(this::btnMobRewardActionPerformed);
+        jToolBar1.add(btnMobReward);
 
         jPanel1.setPreferredSize(new Dimension(1200, 950));
         jPanel1.setLayout(new BorderLayout());
@@ -554,6 +566,40 @@ public class Main extends JFrame {
 
     private void btnEffectEditorActionPerformed(ActionEvent evt) {
         openEffectEditor();
+    }
+
+    private void btnMobRewardActionPerformed(ActionEvent evt) {
+        openMobReward();
+    }
+
+    private void openMobReward() {
+        minimizeAllFrames();
+        // Check existing
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof MobRewardScr) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+
+        // New instance
+        MobRewardScr mobRewardScr = new MobRewardScr();
+        desktop.add(mobRewardScr);
+        mobRewardScr.setLocation(0, 0);
+        mobRewardScr.setVisible(true);
+        try {
+            mobRewardScr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
     private void openEffectEditor() {

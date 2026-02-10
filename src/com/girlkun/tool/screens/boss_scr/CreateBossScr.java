@@ -391,9 +391,9 @@ public class CreateBossScr extends JInternalFrame {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
 
         // Top - Outfit selectors
-        JPanel outfitPanel = new JPanel(new GridLayout(3, 1, 5, 5));
+        JPanel outfitPanel = new JPanel(new GridLayout(4, 1, 5, 5)); // 4 rows now
         outfitPanel.setBorder(BorderFactory.createTitledBorder("Chọn Outfit (Head, Body, Leg)"));
-        outfitPanel.setPreferredSize(new Dimension(0, 180));
+        outfitPanel.setPreferredSize(new Dimension(0, 220)); // Increased height
 
         outfitPanel.add(createOutfitRow("Head", btnHead = new JButton("Chọn Head"),
                 cboHeadPath = new JComboBox<>(), lblHeadInfo = new JLabel("ID: --")));
@@ -401,6 +401,20 @@ public class CreateBossScr extends JInternalFrame {
                 cboBodyPath = new JComboBox<>(), lblBodyInfo = new JLabel("ID: --")));
         outfitPanel.add(createOutfitRow("Leg", btnLeg = new JButton("Chọn Leg"),
                 cboLegPath = new JComboBox<>(), lblLegInfo = new JLabel("ID: --")));
+
+        // Add "Chọn Cải trang" button row
+        JPanel caiTrangRow = new JPanel(new BorderLayout(5, 5));
+        JLabel lblCaiTrang = new JLabel("Cải trang:");
+        lblCaiTrang.setPreferredSize(new Dimension(50, 25));
+        caiTrangRow.add(lblCaiTrang, BorderLayout.WEST);
+
+        JButton btnCaiTrang = new JButton("Chọn Cải trang");
+        btnCaiTrang.setBackground(new Color(156, 39, 176)); // Purple color
+        btnCaiTrang.setForeground(Color.WHITE);
+        btnCaiTrang.addActionListener(e -> showCaiTrangDialog());
+        caiTrangRow.add(btnCaiTrang, BorderLayout.CENTER);
+
+        outfitPanel.add(caiTrangRow);
 
         // Button actions
         btnHead.addActionListener(e -> selectOutfitImage("head"));
@@ -701,6 +715,305 @@ public class CreateBossScr extends JInternalFrame {
                     "Không thể load ảnh: " + ex.getMessage(),
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void showCaiTrangDialog() {
+        // Load cải trang list in background
+        SwingWorker<List<ShopManagerDAO.CaiTrangTemplate>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<ShopManagerDAO.CaiTrangTemplate> doInBackground() {
+                return ShopManagerDAO.gI().getAllCaiTrang();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<ShopManagerDAO.CaiTrangTemplate> caiTrangList = get();
+                    if (caiTrangList.isEmpty()) {
+                        JOptionPane.showMessageDialog(CreateBossScr.this,
+                                "Không tìm thấy cải trang nào trong database!",
+                                "Thông báo", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    // Create dialog
+                    JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(CreateBossScr.this),
+                            "Chọn Cải trang", true);
+                    dialog.setSize(900, 700);
+                    dialog.setLocationRelativeTo(CreateBossScr.this);
+
+                    // Search field panel
+                    JPanel searchPanel = new JPanel(new BorderLayout());
+                    searchPanel.setBorder(new EmptyBorder(10, 10, 5, 10));
+                    JLabel lblSearch = new JLabel("Tìm kiếm: ");
+                    lblSearch.setFont(new Font("SansSerif", Font.BOLD, 12));
+                    JTextField txtSearch = new JTextField();
+                    txtSearch.setPreferredSize(new Dimension(0, 28));
+                    txtSearch.setFont(new Font("SansSerif", Font.PLAIN, 13));
+                    searchPanel.add(lblSearch, BorderLayout.WEST);
+                    searchPanel.add(txtSearch, BorderLayout.CENTER);
+
+                    // Grid panel for cải trang items
+                    JPanel gridPanel = new JPanel(new GridLayout(0, 4, 10, 10));
+                    gridPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+                    // Method to populate grid
+                    Runnable populateGrid = () -> {
+                        gridPanel.removeAll();
+                        String searchText = txtSearch.getText().toLowerCase().trim();
+
+                        for (ShopManagerDAO.CaiTrangTemplate ct : caiTrangList) {
+                            if (!searchText.isEmpty() && !ct.name.toLowerCase().contains(searchText)) {
+                                continue;
+                            }
+
+                            JPanel itemPanel = new JPanel(new BorderLayout(5, 5));
+                            itemPanel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
+                            itemPanel.setBackground(Color.WHITE);
+                            itemPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+                            // Load icon
+                            JLabel iconLabel = new JLabel();
+                            iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
+                            iconLabel.setPreferredSize(new Dimension(64, 64));
+                            try {
+                                File iconFile = new File(ICON_PATH + "/" + ct.iconId + ".png");
+                                if (iconFile.exists()) {
+                                    BufferedImage iconImg = ImageIO.read(iconFile);
+                                    // Scale to fit
+                                    int size = 56;
+                                    BufferedImage scaled = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+                                    java.awt.Graphics2D g2d = scaled.createGraphics();
+                                    g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                                            java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                                    double scale = Math.min((double) size / iconImg.getWidth(),
+                                            (double) size / iconImg.getHeight());
+                                    int w = (int) (iconImg.getWidth() * scale);
+                                    int h = (int) (iconImg.getHeight() * scale);
+                                    g2d.drawImage(iconImg, (size - w) / 2, (size - h) / 2, w, h, null);
+                                    g2d.dispose();
+                                    iconLabel.setIcon(new ImageIcon(scaled));
+                                } else {
+                                    iconLabel.setText("ID: " + ct.iconId);
+                                }
+                            } catch (Exception e) {
+                                iconLabel.setText("ID: " + ct.iconId);
+                            }
+
+                            // Name label with multi-line - use black text for visibility
+                            JLabel nameLabel = new JLabel("<html><center>" + ct.name + "</center></html>");
+                            nameLabel.setHorizontalAlignment(SwingConstants.CENTER);
+                            nameLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+                            nameLabel.setForeground(Color.BLACK);
+
+                            itemPanel.add(iconLabel, BorderLayout.CENTER);
+                            itemPanel.add(nameLabel, BorderLayout.SOUTH);
+
+                            // Click listener
+                            itemPanel.addMouseListener(new MouseAdapter() {
+                                @Override
+                                public void mouseClicked(MouseEvent e) {
+                                    applyCaiTrang(ct);
+                                    dialog.dispose();
+                                }
+
+                                @Override
+                                public void mouseEntered(MouseEvent e) {
+                                    itemPanel.setBackground(new Color(230, 230, 250));
+                                }
+
+                                @Override
+                                public void mouseExited(MouseEvent e) {
+                                    itemPanel.setBackground(Color.WHITE);
+                                }
+                            });
+
+                            gridPanel.add(itemPanel);
+                        }
+                        gridPanel.revalidate();
+                        gridPanel.repaint();
+                    };
+
+                    // Initial populate
+                    populateGrid.run();
+
+                    // Search listener
+                    txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+                        public void insertUpdate(DocumentEvent e) {
+                            populateGrid.run();
+                        }
+
+                        public void removeUpdate(DocumentEvent e) {
+                            populateGrid.run();
+                        }
+
+                        public void changedUpdate(DocumentEvent e) {
+                            populateGrid.run();
+                        }
+                    });
+
+                    // Scroll pane
+                    JScrollPane scrollPane = new JScrollPane(gridPanel);
+                    scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+                    dialog.setLayout(new BorderLayout());
+                    dialog.add(searchPanel, BorderLayout.NORTH);
+                    dialog.add(scrollPane, BorderLayout.CENTER);
+
+                    dialog.setVisible(true);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(CreateBossScr.this,
+                            "Lỗi load cải trang: " + e.getMessage(),
+                            "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void applyCaiTrang(ShopManagerDAO.CaiTrangTemplate ct) {
+        // Set selected path IDs from cải trang
+        selectedHeadPathId = ct.head;
+        selectedBodyPathId = ct.body;
+        selectedLegPathId = ct.leg;
+
+        // Update labels
+        lblHeadInfo.setText("ID: " + ct.head);
+        lblBodyInfo.setText("ID: " + ct.body);
+        lblLegInfo.setText("ID: " + ct.leg);
+
+        // Clear existing frames
+        headFrames.clear();
+        bodyFrames.clear();
+        legFrames.clear();
+        headPos = null;
+        bodyPos = null;
+        legPos = null;
+
+        // Clear comboboxes and add selected path
+        cboHeadPath.removeAllItems();
+        cboBodyPath.removeAllItems();
+        cboLegPath.removeAllItems();
+
+        headPathIds.clear();
+        bodyPathIds.clear();
+        legPathIds.clear();
+
+        headPathIds.add(ct.head);
+        bodyPathIds.add(ct.body);
+        legPathIds.add(ct.leg);
+
+        cboHeadPath.addItem("Path ID: " + ct.head);
+        cboBodyPath.addItem("Path ID: " + ct.body);
+        cboLegPath.addItem("Path ID: " + ct.leg);
+
+        // Load path positions and images
+        loadPathPositions();
+
+        // Load first frame icons for display
+        loadFirstFrameIcons();
+
+        JOptionPane.showMessageDialog(this,
+                "Đã áp dụng cải trang: " + ct.name + "\n" +
+                        "Head: " + ct.head + ", Body: " + ct.body + ", Leg: " + ct.leg,
+                "Thành công", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void loadFirstFrameIcons() {
+        // Load icons from path data for preview
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() {
+                try {
+                    // Load head icon
+                    if (selectedHeadPathId > 0) {
+                        ShopManagerDAO.PartData headData = ShopManagerDAO.gI().getPartData(selectedHeadPathId);
+                        if (headData != null) {
+                            int iconId = extractFirstIconIdFromJson(headData.data);
+                            if (iconId > 0) {
+                                headIconId = iconId;
+                                File iconFile = new File(ICON_PATH + "/" + iconId + ".png");
+                                if (iconFile.exists()) {
+                                    headImage = ImageIO.read(iconFile);
+                                }
+                            }
+                        }
+                    }
+                    // Load body icon
+                    if (selectedBodyPathId > 0) {
+                        ShopManagerDAO.PartData bodyData = ShopManagerDAO.gI().getPartData(selectedBodyPathId);
+                        if (bodyData != null) {
+                            int iconId = extractFirstIconIdFromJson(bodyData.data);
+                            if (iconId > 0) {
+                                bodyIconId = iconId;
+                                File iconFile = new File(ICON_PATH + "/" + iconId + ".png");
+                                if (iconFile.exists()) {
+                                    bodyImage = ImageIO.read(iconFile);
+                                }
+                            }
+                        }
+                    }
+                    // Load leg icon
+                    if (selectedLegPathId > 0) {
+                        ShopManagerDAO.PartData legData = ShopManagerDAO.gI().getPartData(selectedLegPathId);
+                        if (legData != null) {
+                            int iconId = extractFirstIconIdFromJson(legData.data);
+                            if (iconId > 0) {
+                                legIconId = iconId;
+                                File iconFile = new File(ICON_PATH + "/" + iconId + ".png");
+                                if (iconFile.exists()) {
+                                    legImage = ImageIO.read(iconFile);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                canvas.repaint();
+            }
+        };
+        worker.execute();
+    }
+
+    private int extractFirstIconIdFromJson(String jsonData) {
+        if (jsonData == null || jsonData.isEmpty())
+            return 0;
+        try {
+            JSONParser parser = new JSONParser();
+            Object obj = parser.parse(jsonData);
+            if (obj instanceof JSONArray) {
+                JSONArray arr = (JSONArray) obj;
+                if (!arr.isEmpty()) {
+                    Object first = arr.get(0);
+                    JSONArray frameData = null;
+                    if (first instanceof JSONArray) {
+                        frameData = (JSONArray) first;
+                    } else if (first instanceof String) {
+                        String s = (String) first;
+                        if (s.startsWith("[") && s.endsWith("]")) {
+                            Object parsed = parser.parse(s);
+                            if (parsed instanceof JSONArray) {
+                                frameData = (JSONArray) parsed;
+                            }
+                        }
+                    }
+                    if (frameData != null && !frameData.isEmpty()) {
+                        return ((Long) frameData.get(0)).intValue();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error extracting icon ID: " + e.getMessage());
+        }
+        return 0;
     }
 
     private int extractIconIdFromFilename(String filename) {

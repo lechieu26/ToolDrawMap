@@ -70,7 +70,7 @@ public class ShopManagerDAO {
     }
 
     // Get active connection or reconnect
-    private Connection getConnection() throws SQLException {
+    public Connection getConnection() throws SQLException {
         if (connection == null || connection.isClosed()) {
             connect();
         }
@@ -997,6 +997,123 @@ public class ShopManagerDAO {
             }
         } catch (Exception e) {
             System.out.println("Error loading skills: " + e.getMessage());
+        }
+        return list;
+    }
+
+    // --- Cải Trang (Disguise) Template ---
+    public static class CaiTrangTemplate {
+        public int id;
+        public String name;
+        public int iconId;
+        public int head;
+        public int body;
+        public int leg;
+
+        public CaiTrangTemplate(int id, String name, int iconId, int head, int body, int leg) {
+            this.id = id;
+            this.name = name;
+            this.iconId = iconId;
+            this.head = head;
+            this.body = body;
+            this.leg = leg;
+        }
+
+        @Override
+        public String toString() {
+            return name + " (ID: " + id + ")";
+        }
+    }
+
+    public List<CaiTrangTemplate> getAllCaiTrang() {
+        List<CaiTrangTemplate> list = new ArrayList<>();
+        try {
+            Connection conn = getConnection();
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "SELECT id, name, icon_id, head, body, leg FROM item_template WHERE type = 5 ORDER BY name")) {
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    list.add(new CaiTrangTemplate(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getInt("icon_id"),
+                            rs.getInt("head"),
+                            rs.getInt("body"),
+                            rs.getInt("leg")));
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading cai trang: " + e.getMessage());
+        }
+        return list;
+    }
+
+    // --- Mob Template ---
+    public static class MobTemplate {
+        public int id;
+        public String name;
+
+        public MobTemplate(int id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name + " (" + id + ")";
+        }
+    }
+
+    public List<MobTemplate> getMobTemplates() {
+        List<MobTemplate> list = new ArrayList<>();
+        // Add "All" option first
+        list.add(new MobTemplate(-1, "Tất cả quái"));
+        try {
+            Connection conn = getConnection();
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "SELECT id, name FROM mob_template ORDER BY name")) {
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    list.add(new MobTemplate(rs.getInt("id"), rs.getString("name")));
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading mob templates: " + e.getMessage());
+        }
+        return list;
+    }
+
+    // --- Map Template ---
+    public static class MapTemplate {
+        public int id;
+        public String name;
+
+        public MapTemplate(int id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name + " (" + id + ")";
+        }
+    }
+
+    public List<MapTemplate> getMapTemplates() {
+        List<MapTemplate> list = new ArrayList<>();
+        // Add "All" option first
+        list.add(new MapTemplate(-1, "Tất cả map"));
+        try {
+            Connection conn = getConnection();
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "SELECT id, name FROM map_template ORDER BY name")) {
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    list.add(new MapTemplate(rs.getInt("id"), rs.getString("name")));
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading map templates: " + e.getMessage());
         }
         return list;
     }

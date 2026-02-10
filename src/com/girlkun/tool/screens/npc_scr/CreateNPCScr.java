@@ -2,6 +2,7 @@ package com.girlkun.tool.screens.npc_scr;
 
 import java.awt.FileDialog;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO;
+import com.girlkun.tool.shopmanager.services.ShopManagerDAO.CaiTrangTemplate;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO.NpcFullInfo;
 import com.girlkun.tool.shopmanager.services.ShopManagerDAO.PartData;
 import org.json.simple.JSONArray;
@@ -9,6 +10,8 @@ import org.json.simple.parser.JSONParser;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -83,6 +86,11 @@ public class CreateNPCScr extends JInternalFrame {
 
     // Current loaded NPC
     private NpcFullInfo currentNpc = null;
+
+    // Cải trang flag - khi true thì save chỉ cập nhật npc_template, không tạo part
+    // mới
+    private boolean useCaiTrang = false;
+    private String caiTrangName = "";
 
     public CreateNPCScr() {
         super("Create NPC", true, true, true, true);
@@ -858,6 +866,18 @@ public class CreateNPCScr extends JInternalFrame {
         legInfoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         legInfoLabel.setFont(new Font("Consolas", Font.PLAIN, 10));
         partSection.add(legInfoLabel);
+        partSection.add(Box.createVerticalStrut(10));
+
+        // Cải trang button
+        JButton btnCaiTrang = new JButton("Chọn Cải trang");
+        btnCaiTrang.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnCaiTrang.setMaximumSize(new Dimension(180, 40));
+        btnCaiTrang.setBackground(new Color(156, 39, 176)); // Purple color
+        btnCaiTrang.setForeground(Color.WHITE);
+        btnCaiTrang.setFont(new Font("SansSerif", Font.BOLD, 13));
+        btnCaiTrang.setFocusPainted(false);
+        btnCaiTrang.addActionListener(e -> showCaiTrangDialog());
+        partSection.add(btnCaiTrang);
 
         leftPanel.add(partSection);
         leftPanel.add(Box.createVerticalStrut(15));
@@ -957,6 +977,15 @@ public class CreateNPCScr extends JInternalFrame {
             return;
         }
 
+        // === Trường hợp sử dụng Cải trang ===
+        // Khi dùng cải trang, các part ID đã tồn tại trong DB nên chỉ cần cập nhật
+        // npc_template
+        if (useCaiTrang) {
+            saveCaiTrangToNpc();
+            return;
+        }
+
+        // === Trường hợp thường (chọn part thủ công) ===
         // Kiểm tra xem có bộ phận nào được chọn không
         boolean hasHead = headIconId > 0;
         boolean hasBody = bodyIconId > 0;
@@ -1192,6 +1221,274 @@ public class CreateNPCScr extends JInternalFrame {
         worker.execute();
     }
 
+    /**
+     * Lưu NPC khi sử dụng cải trang.
+     * Vì các part ID của cải trang đã tồn tại trong DB,
+     * nên chỉ cần cập nhật head/body/leg trong npc_template.
+     */
+    private void saveCaiTrangToNpc() {
+        StringBuilder msgBuilder = new StringBuilder();
+        msgBuilder.append("=== LƯU NPC VỚI CẢI TRANG ===").append("\n\n");
+        msgBuilder.append("NPC: ").append(currentNpc.name).append(" (ID: ").append(currentNpc.id).append(")\n");
+        msgBuilder.append("Cải trang: ").append(caiTrangName).append("\n\n");
+        msgBuilder.append("--- Part IDs từ Cải trang ---\n\n");
+        msgBuilder.append("Head Part ID: ").append(headId).append("\n");
+        msgBuilder.append("Body Part ID: ").append(bodyId).append("\n");
+        msgBuilder.append("Leg Part ID: ").append(legId).append("\n\n");
+        msgBuilder.append("(Các Part ID đã tồn tại trong DB - chỉ cập nhật npc_template)");
+
+        int option = JOptionPane.showConfirmDialog(this, msgBuilder.toString(),
+                "Xác nhận Lưu NPC với Cải trang",
+                JOptionPane.YES_NO_OPTION);
+
+        if (option != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() {
+                // Chỉ cập nhật npc_template, không insert/update part
+                ShopManagerDAO.gI().updateNpcTemplateParts(currentNpc.id, headId, bodyId, legId);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    StringBuilder successMsg = new StringBuilder();
+                    successMsg.append("✓ Đã cập nhật NPC (ID ").append(currentNpc.id).append(") thành công!\n\n");
+                    successMsg.append("Cải trang: ").append(caiTrangName).append("\n");
+                    successMsg.append("Part IDs:\n");
+                    successMsg.append("- Head: ").append(headId).append("\n");
+                    successMsg.append("- Body: ").append(bodyId).append("\n");
+                    successMsg.append("- Leg: ").append(legId);
+
+                    JOptionPane.showMessageDialog(CreateNPCScr.this, successMsg.toString(),
+                            "Thành công", JOptionPane.INFORMATION_MESSAGE);
+
+                    // Reload list và select lại NPC hiện tại
+                    loadNpcListAsyncAndSelect(currentNpc.id);
+
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(CreateNPCScr.this,
+                            "Lỗi: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    /**
+     * Hiển thị dialog chọn cải trang.
+     * Load danh sách cải trang từ item_template (type = 5), hiển thị grid với icon
+     * và tên.
+     */
+    private void showCaiTrangDialog() {
+        // Load cải trang list in background
+        SwingWorker<java.util.List<CaiTrangTemplate>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected java.util.List<CaiTrangTemplate> doInBackground() {
+                return ShopManagerDAO.gI().getAllCaiTrang();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<CaiTrangTemplate> caiTrangList = get();
+                    if (caiTrangList.isEmpty()) {
+                        JOptionPane.showMessageDialog(CreateNPCScr.this,
+                                "Không tìm thấy cải trang nào trong database!",
+                                "Thông báo", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    // Create dialog
+                    JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(CreateNPCScr.this),
+                            "Chọn Cải trang cho NPC", true);
+                    dialog.setSize(900, 700);
+                    dialog.setLocationRelativeTo(CreateNPCScr.this);
+
+                    // Search field panel
+                    JPanel searchPanel = new JPanel(new BorderLayout());
+                    searchPanel.setBorder(new EmptyBorder(10, 10, 5, 10));
+                    JLabel lblSearch = new JLabel("Tìm kiếm: ");
+                    lblSearch.setFont(new Font("SansSerif", Font.BOLD, 12));
+                    JTextField txtSearch = new JTextField();
+                    txtSearch.setPreferredSize(new Dimension(0, 28));
+                    txtSearch.setFont(new Font("SansSerif", Font.PLAIN, 13));
+                    searchPanel.add(lblSearch, BorderLayout.WEST);
+                    searchPanel.add(txtSearch, BorderLayout.CENTER);
+
+                    // Grid panel for cải trang items
+                    JPanel gridPanel = new JPanel(new GridLayout(0, 4, 10, 10));
+                    gridPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+                    // Method to populate grid
+                    Runnable populateGrid = () -> {
+                        gridPanel.removeAll();
+                        String searchText = txtSearch.getText().toLowerCase().trim();
+
+                        for (CaiTrangTemplate ct : caiTrangList) {
+                            if (!searchText.isEmpty() && !ct.name.toLowerCase().contains(searchText)) {
+                                continue;
+                            }
+
+                            JPanel itemPanel = new JPanel(new BorderLayout(5, 5));
+                            itemPanel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
+                            itemPanel.setBackground(Color.WHITE);
+                            itemPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+                            // Load icon
+                            JLabel iconLabel = new JLabel();
+                            iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
+                            iconLabel.setPreferredSize(new Dimension(64, 64));
+                            try {
+                                File iconFile = new File(ICON_PATH + "/" + ct.iconId + ".png");
+                                if (iconFile.exists()) {
+                                    BufferedImage iconImg = ImageIO.read(iconFile);
+                                    // Scale to fit
+                                    int size = 56;
+                                    BufferedImage scaled = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+                                    java.awt.Graphics2D g2d = scaled.createGraphics();
+                                    g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                                            java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                                    double scale = Math.min((double) size / iconImg.getWidth(),
+                                            (double) size / iconImg.getHeight());
+                                    int w = (int) (iconImg.getWidth() * scale);
+                                    int h = (int) (iconImg.getHeight() * scale);
+                                    g2d.drawImage(iconImg, (size - w) / 2, (size - h) / 2, w, h, null);
+                                    g2d.dispose();
+                                    iconLabel.setIcon(new ImageIcon(scaled));
+                                } else {
+                                    iconLabel.setText("ID: " + ct.iconId);
+                                }
+                            } catch (Exception e) {
+                                iconLabel.setText("ID: " + ct.iconId);
+                            }
+
+                            // Name label
+                            JLabel nameLabel = new JLabel("<html><center>" + ct.name + "</center></html>");
+                            nameLabel.setHorizontalAlignment(SwingConstants.CENTER);
+                            nameLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+                            nameLabel.setForeground(Color.BLACK);
+
+                            itemPanel.add(iconLabel, BorderLayout.CENTER);
+                            itemPanel.add(nameLabel, BorderLayout.SOUTH);
+
+                            // Click listener
+                            itemPanel.addMouseListener(new MouseAdapter() {
+                                @Override
+                                public void mouseClicked(MouseEvent e) {
+                                    applyCaiTrang(ct);
+                                    dialog.dispose();
+                                }
+
+                                @Override
+                                public void mouseEntered(MouseEvent e) {
+                                    itemPanel.setBackground(new Color(230, 230, 250));
+                                }
+
+                                @Override
+                                public void mouseExited(MouseEvent e) {
+                                    itemPanel.setBackground(Color.WHITE);
+                                }
+                            });
+
+                            gridPanel.add(itemPanel);
+                        }
+                        gridPanel.revalidate();
+                        gridPanel.repaint();
+                    };
+
+                    // Initial populate
+                    populateGrid.run();
+
+                    // Search listener
+                    txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+                        public void insertUpdate(DocumentEvent e) {
+                            populateGrid.run();
+                        }
+
+                        public void removeUpdate(DocumentEvent e) {
+                            populateGrid.run();
+                        }
+
+                        public void changedUpdate(DocumentEvent e) {
+                            populateGrid.run();
+                        }
+                    });
+
+                    // Scroll pane
+                    JScrollPane scrollPane = new JScrollPane(gridPanel);
+                    scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+                    dialog.setLayout(new BorderLayout());
+                    dialog.add(searchPanel, BorderLayout.NORTH);
+                    dialog.add(scrollPane, BorderLayout.CENTER);
+
+                    dialog.setVisible(true);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(CreateNPCScr.this,
+                            "Lỗi load cải trang: " + e.getMessage(),
+                            "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    /**
+     * Áp dụng cải trang cho NPC.
+     * Sử dụng head, body, leg ID từ cải trang.
+     * Load ảnh preview từ part data trong DB.
+     */
+    private void applyCaiTrang(CaiTrangTemplate ct) {
+        // Đánh dấu đang sử dụng cải trang
+        useCaiTrang = true;
+        caiTrangName = ct.name;
+
+        // Set Part IDs từ cải trang
+        headId = ct.head;
+        bodyId = ct.body;
+        legId = ct.leg;
+
+        // Reset icon IDs (sẽ được load từ part data)
+        headIconId = 0;
+        bodyIconId = 0;
+        legIconId = 0;
+
+        // Reset positions
+        headPos = new Point(0, 0);
+        bodyPos = new Point(0, 0);
+        legPos = new Point(0, 0);
+
+        // Clear images
+        headImage = null;
+        bodyImage = null;
+        legImage = null;
+
+        // Load part data từ DB và hiển thị preview
+        NpcFullInfo tempNpc = new NpcFullInfo(currentNpc != null ? currentNpc.id : 0,
+                currentNpc != null ? currentNpc.name : "", ct.head, ct.body, ct.leg,
+                currentNpc != null ? currentNpc.avatar : 0);
+        loadPartDataAsync(tempNpc);
+
+        // Update UI labels
+        updatePartInfoLabels();
+        canvas.repaint();
+
+        JOptionPane.showMessageDialog(this,
+                "Đã áp dụng cải trang: " + ct.name + "\n" +
+                        "Head: " + ct.head + ", Body: " + ct.body + ", Leg: " + ct.leg + "\n\n" +
+                        "Nhấn 'Lưu Part & NPC' để lưu vào DB.\n" +
+                        "(Chỉ cập nhật npc_template, không tạo part mới)",
+                "Thành công", JOptionPane.INFORMATION_MESSAGE);
+    }
+
     // Đường dẫn mặc định
     private static final String IMAGE_DIR_PATH = System.getProperty("user.dir") + "/data/data/icon/x4";
     // Cache thư mục cuối cùng đã chọn (dùng chung cho cả avatar và part)
@@ -1288,6 +1585,10 @@ public class CreateNPCScr extends JInternalFrame {
                 } catch (NumberFormatException e) {
                     id = 0;
                 }
+
+                // Khi chọn part thủ công, tắt flag cải trang
+                useCaiTrang = false;
+                caiTrangName = "";
 
                 switch (partType) {
                     case "head":
