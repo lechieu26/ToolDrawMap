@@ -221,8 +221,13 @@ public class EffectTable extends JFrame {
       }
    }
 
+   public void load() {
+      this.fillToTable();
+   }
+
    private void fillToTable() {
       this.model1.setRowCount(0);
+      this.model2.setRowCount(0); // Also clear model2 for consistency
 
       for (EffectTemplate eff : Manager.gI().getEffectTemplates()) {
          this.model1.addRow(new Object[]{eff.getId(), eff.getId()});

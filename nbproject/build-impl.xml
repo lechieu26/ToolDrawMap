@@ -40,9 +40,9 @@
             <fileset dir="lib"/>
         </copy>
         <!-- Chi copy config, KHONG copy toan bo data folder -->
-        <mkdir dir="${dist.dir}/data/config"/>
-        <copy todir="${dist.dir}/data/config">
-            <fileset dir="data/config"/>
+        <mkdir dir="${dist.dir}/data/data/config"/>
+        <copy todir="${dist.dir}/data/data/config">
+            <fileset dir="data/data/config"/>
         </copy>
     </target>
     

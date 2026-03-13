@@ -18,9 +18,9 @@
             <fileset dir="lib"/>
         </copy>
         <!-- Copy file config nhỏ để tiện chỉnh sửa -->
-        <mkdir dir="${dist.dir}/data/config"/>
-        <copy todir="${dist.dir}/data/config" failonerror="false">
-            <fileset dir="data/config"/>
+        <mkdir dir="${dist.dir}/data/data/config"/>
+        <copy todir="${dist.dir}/data/data/config" failonerror="false">
+            <fileset dir="data/data/config"/>
         </copy>
     </target>
 </project>

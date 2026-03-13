@@ -79,7 +79,7 @@ import javax.swing.table.DefaultTableModel;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
 
-public class DrawMapScr extends JInternalFrame {
+public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.Manager.DataChangeListener {
    private Thread tDrawMap;
    private Thread tDrawTile;
    private BufferedImage layerPaintScreen;
@@ -234,8 +234,10 @@ public class DrawMapScr extends JInternalFrame {
          @Override
          public void internalFrameClosing(InternalFrameEvent e) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(DrawMapScr.this.ked);
+            com.girlkun.tool.main.Manager.gI().removeDataChangeListener(DrawMapScr.this);
          }
       });
+      com.girlkun.tool.main.Manager.gI().addDataChangeListener(this);
       if (this.tile == null) {
          File file = new File("data/tile/1");
          if (file.exists()) {
@@ -2494,6 +2496,21 @@ public class DrawMapScr extends JInternalFrame {
       }
 
       this.jScrollPane2.getVerticalScrollBar().setUnitIncrement(16);
+   }
+
+   @Override
+   public void onDataChanged() {
+      // Khi dữ liệu cơ bản thay đổi (Reload), cập nhật lại danh sách template
+      this.refreshData();
+   }
+
+   private void refreshData() {
+      // Cập nhật các danh sách hiển thị trong Tool (nếu có ComboBox hay Table list)
+      // Ví dụ: nạp lại danh sách Mob/Npc mẫu trong các List con hoặc Dialog
+      if (this.mobTable != null) this.mobTable.load();
+      if (this.npcTable != null) this.npcTable.load();
+      if (this.effectTable != null) this.effectTable.load();
+      System.out.println("DrawMapScr đã cập nhật dữ liệu mới từ Database!");
    }
 
    public void addBEff(int id) {

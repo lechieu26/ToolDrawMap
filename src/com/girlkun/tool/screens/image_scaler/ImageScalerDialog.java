@@ -29,13 +29,18 @@ public class ImageScalerDialog extends JInternalFrame {
     private static final Color BTN_OPEN_COLOR = new Color(0xf39c12);
     private static final Color BTN_GENERATE_COLOR = new Color(0x27ae60);
 
-    // Components
+    // Components (Scaler Tab)
     private DefaultListModel<String> listModel;
     private JList<String> imageList;
     private JLabel countLabel;
-    private JLabel statusLabel;
+    private JLabel statusLabelGeneral;
     private JProgressBar progressBar;
     private JButton btnSelect, btnClear, btnRename, btnOpen, btnGenerate;
+
+    // Tabs
+    private JTabbedPane tabbedPane;
+    private RenameSpritesPanel renameSpritesPanel;
+    private SpriteCutterPanel spriteCutterPanel;
 
     // Data
     private List<File> selectedImages = new ArrayList<>();
@@ -54,6 +59,27 @@ public class ImageScalerDialog extends JInternalFrame {
     }
 
     private void initUI() {
+        tabbedPane = new JTabbedPane();
+        tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        
+        // Tab 1: Image Scaler
+        tabbedPane.addTab("Image Scaler", createScalerPanel());
+        
+        // Tab 2: Rename Sprites
+        renameSpritesPanel = new RenameSpritesPanel();
+        tabbedPane.addTab("Rename Sprites", renameSpritesPanel);
+        
+        // Tab 3: Sprite Cutter
+        spriteCutterPanel = new SpriteCutterPanel();
+        tabbedPane.addTab("Sprite Cutter", spriteCutterPanel);
+        
+        tabbedPane.setBackground(BG_COLOR);
+        tabbedPane.setForeground(TEXT_COLOR);
+
+        setContentPane(tabbedPane);
+    }
+
+    private JPanel createScalerPanel() {
         JPanel mainPanel = new JPanel(new BorderLayout(0, 15));
         mainPanel.setBackground(BG_COLOR);
         mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -70,7 +96,7 @@ public class ImageScalerDialog extends JInternalFrame {
         JPanel bottomPanel = createBottomPanel();
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
 
-        setContentPane(mainPanel);
+        return mainPanel;
     }
 
     private JPanel createTitlePanel() {
@@ -214,10 +240,10 @@ public class ImageScalerDialog extends JInternalFrame {
         progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // Status label
-        statusLabel = new JLabel("Sẵn sàng");
-        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        statusLabel.setForeground(INFO_COLOR);
-        statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        statusLabelGeneral = new JLabel("Sẵn sàng");
+        statusLabelGeneral.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLabelGeneral.setForeground(INFO_COLOR);
+        statusLabelGeneral.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // Output label
         JLabel outputLabel = new JLabel("Output: " + outputDir.getAbsolutePath());
@@ -227,7 +253,7 @@ public class ImageScalerDialog extends JInternalFrame {
 
         panel.add(progressBar);
         panel.add(Box.createVerticalStrut(10));
-        panel.add(statusLabel);
+        panel.add(statusLabelGeneral);
         panel.add(Box.createVerticalStrut(5));
         panel.add(outputLabel);
 
@@ -443,7 +469,7 @@ public class ImageScalerDialog extends JInternalFrame {
     }
 
     private void updateStatus(String text) {
-        SwingUtilities.invokeLater(() -> statusLabel.setText(text));
+        SwingUtilities.invokeLater(() -> statusLabelGeneral.setText(text));
     }
 
     // Helper methods

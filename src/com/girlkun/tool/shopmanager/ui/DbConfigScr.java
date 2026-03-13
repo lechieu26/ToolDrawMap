@@ -99,13 +99,13 @@ public class DbConfigScr extends JInternalFrame {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
 
         btnSave = new JButton("Lưu cấu hình");
-        btnTest = new JButton("Thử kết nối");
+        btnTest = new JButton("Retry connect DB");
 
         styleButton(btnSave, new Color(60, 141, 188));
         styleButton(btnTest, new Color(0, 166, 90));
 
         btnSave.addActionListener(e -> saveConfig());
-        btnTest.addActionListener(e -> testConnectionQuick());
+        btnTest.addActionListener(e -> saveConfig());
 
         btnPanel.add(btnSave);
         btnPanel.add(btnTest);
@@ -268,8 +268,10 @@ public class DbConfigScr extends JInternalFrame {
 
             ConfigManager.save(cfg);
             dao.reloadConfig();
+            com.girlkun.database.GirlkunDB.reload(); // Reload Main Tool DB config
+            com.girlkun.tool.main.Manager.gI().reload(); // Reload cached templates (NPCs, Items, etc.)
 
-            setStatus(true, "Đã lưu cấu hình!", new Color(0, 166, 90));
+            setStatus(true, "Đã lưu cấu hình và đồng bộ toàn bộ Tool!", new Color(0, 166, 90));
 
             // Test connection after save
             testConnectionQuick();

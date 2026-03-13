@@ -18,85 +18,77 @@ public class GirlkunDB {
    private static GirlkunDatasource[] datasource;
    public static boolean LOG_QUERY = false;
 
-   private static void loadDatasource() {
+   public static void loadDatasource() {
       Properties properties = new Properties();
 
       try {
          properties.load(new FileInputStream(new String(Resource.pathFileProperties)));
          Object value = null;
-         int n = Integer.parseInt(String.valueOf(properties.get(new String(Resource.amount))));
+         
+         // Fix: Nếu không có girlkun.database.amount thì mặc định là 1 (vì config.properties cũ không có số lượng)
+         int n = 1;
+         if ((value = properties.get(new String(Resource.amount))) != null) {
+            n = Integer.parseInt(String.valueOf(value));
+         }
+         
          datasource = new GirlkunDatasource[n];
 
          for (int i = 0; i < n; i++) {
-            String nameDS = "";
+            String nameDS = "GIRLKUN"; // Mặc định cho Draw Map
             String driver = new String(Resource.defaultDriver);
-            String url = new String(Resource.formatURL);
-            String host = "";
-            String port = "";
-            String name = "";
-            String user = "";
+            String urlFormat = "jdbc:mysql://%s:%s/%s?useUnicode=yes&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useSSL=false";
+            String host = "localhost";
+            String port = "3306";
+            String name = "nrosamurai";
+            String user = "root";
             String pass = "";
             int minCon = 1;
-            int maxCon = 1;
-            int maxLifeTime = 75000;
-            if ((value = properties.get(new String(Resource.dsName) + i)) != null) {
-               nameDS = String.valueOf(value);
-            }
+            int maxCon = 5;
+            int maxLifeTime = 1800000;
 
-            if ((value = properties.get(new String(Resource.driver) + i)) != null) {
-               driver = String.valueOf(value);
-            }
+            // Đọc cấu hình (ưu tiên theo index nếu có, nếu không lấy cấu hình chung)
+            String suffix = (n > 1) ? String.valueOf(i) : "";
+            
+            if ((value = properties.get(new String(Resource.dsName) + suffix)) != null) nameDS = String.valueOf(value);
+            if ((value = properties.get(new String(Resource.driver) + suffix)) != null) driver = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.driver))) != null) driver = String.valueOf(value);
+            
+            if ((value = properties.get(new String(Resource.host) + suffix)) != null) host = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.host))) != null) host = String.valueOf(value);
+            
+            if ((value = properties.get(new String(Resource.port) + suffix)) != null) port = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.port))) != null) port = String.valueOf(value);
+            
+            if ((value = properties.get(new String(Resource.name) + suffix)) != null) name = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.name))) != null) name = String.valueOf(value);
+            
+            if ((value = properties.get(new String(Resource.user) + suffix)) != null) user = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.user))) != null) user = String.valueOf(value);
+            
+            if ((value = properties.get(new String(Resource.pass) + suffix)) != null) pass = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.pass))) != null) pass = String.valueOf(value);
 
-            if ((value = properties.get(new String(Resource.host) + i)) != null) {
-               host = String.valueOf(value);
-            }
-
-            if ((value = properties.get(new String(Resource.port) + i)) != null) {
-               port = String.valueOf(value);
-            }
-
-            if ((value = properties.get(new String(Resource.name) + i)) != null) {
-               name = String.valueOf(value);
-            }
-
-            if ((value = properties.get(new String(Resource.user) + i)) != null) {
-               user = String.valueOf(value);
-            }
-
-            if ((value = properties.get(new String(Resource.pass) + i)) != null) {
-               pass = String.valueOf(value);
-            }
-
-            if ((value = properties.get(new String(Resource.min) + i)) != null) {
-               minCon = Integer.parseInt(String.valueOf(value));
-            }
-
-            if ((value = properties.get(new String(Resource.max) + i)) != null) {
-               maxCon = Integer.parseInt(String.valueOf(value));
-            }
-
-            if ((value = properties.get(new String(Resource.lifeTime) + i)) != null) {
-               maxLifeTime = Integer.parseInt(String.valueOf(value));
+            if ((value = properties.get("database.url")) != null) {
+                // Nếu có URL đầy đủ trong config.properties, dùng luôn
+                urlFormat = String.valueOf(value);
             }
 
             HikariConfig config = new HikariConfig();
             config.setDriverClassName(driver);
-            config.setJdbcUrl(String.format(url, host, port, name));
+            if (urlFormat.contains("%s")) {
+                config.setJdbcUrl(String.format(urlFormat, host, port, name));
+            } else {
+                config.setJdbcUrl(urlFormat);
+            }
             config.setUsername(user);
             config.setPassword(pass);
             config.setMinimumIdle(minCon);
             config.setMaximumPoolSize(maxCon);
             config.setMaxLifetime((long) maxLifeTime);
+            // ... (keep other settings)
             config.addDataSourceProperty("cachePrepStmts", "true");
             config.addDataSourceProperty("prepStmtCacheSize", "250");
             config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-            config.addDataSourceProperty("useServerPrepStmts", "true");
-            config.addDataSourceProperty("useLocalSessionState", "true");
-            config.addDataSourceProperty("rewriteBatchedStatements", "true");
-            config.addDataSourceProperty("cacheResultSetMetadata", "true");
-            config.addDataSourceProperty("cacheServerConfiguration", "true");
-            config.addDataSourceProperty("elideSetAutoCommits", "true");
-            config.addDataSourceProperty("maintainTimeStats", "true");
             datasource[i] = new GirlkunDatasource(nameDS, config);
             logger.info("Load thành công datasource: " + nameDS);
          }
@@ -109,13 +101,30 @@ public class GirlkunDB {
          logger.error(var19.getMessage());
       } finally {
          properties.clear();
-         Properties var21 = null;
       }
    }
 
+   /**
+    * Reload database configuration
+    */
+   public static void reload() {
+       try {
+           if (datasource != null) {
+               close();
+           }
+           loadDatasource();
+           logger.info("Database configuration reloaded successfully.");
+       } catch (Exception e) {
+           logger.error("Error reloading database configuration: " + e.getMessage());
+       }
+   }
+
    public static void close() {
+      if (datasource == null) return;
       for (GirlkunDatasource ds : datasource) {
-         ds.close();
+         if (ds != null) {
+            ds.close();
+         }
       }
    }
 

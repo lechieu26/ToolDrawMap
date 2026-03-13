@@ -6,28 +6,27 @@ package com.girlkun;
  */
 public class Resource {
     // Path to properties file
-    public static final byte[] pathFileProperties = "data/config/girlkundb.properties".getBytes();
+    public static final byte[] pathFileProperties = "data/data/config/config.properties".getBytes();
 
     // JDBC URL format cho MySQL 8.x
-    // Thêm serverTimezone, allowPublicKeyRetrieval, useSSL
-    public static final byte[] formatURL = "jdbc:mysql://%s:%s/%s?useUnicode=yes&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useSSL=false"
-            .getBytes();
+    public static final byte[] formatURL = "%s".getBytes(); // Sẽ dùng trực tiếp URL từ file config
 
     // Default driver cho MySQL 8.x
     public static final byte[] defaultDriver = "com.mysql.cj.jdbc.Driver".getBytes();
 
-    // Property keys
-    public static final byte[] amount = "girlkun.database.amount".getBytes();
-    public static final byte[] dsName = "girlkun.database.ds.name.".getBytes();
-    public static final byte[] driver = "girlkun.database.driver.".getBytes();
-    public static final byte[] host = "girlkun.database.host.".getBytes();
-    public static final byte[] port = "girlkun.database.port.".getBytes();
-    public static final byte[] name = "girlkun.database.name.".getBytes();
-    public static final byte[] user = "girlkun.database.user.".getBytes();
-    public static final byte[] pass = "girlkun.database.pass.".getBytes();
-    public static final byte[] min = "girlkun.database.min.".getBytes();
-    public static final byte[] max = "girlkun.database.max.".getBytes();
-    public static final byte[] lifeTime = "girlkun.database.lifetime.".getBytes();
+    // Property keys - Map lại theo file config.properties
+    public static final byte[] amount = "database.amount".getBytes(); // Mặc định là 1 nếu không có
+    public static final byte[] dsName = "database.ds.name.".getBytes();
+    public static final byte[] driver = "database.driver".getBytes();
+    public static final byte[] host = "database.host".getBytes();
+    public static final byte[] port = "database.port".getBytes();
+    public static final byte[] name = "database.name".getBytes();
+    public static final byte[] user = "database.user".getBytes();
+    public static final byte[] pass = "database.pass".getBytes();
+    public static final byte[] url = "database.url".getBytes();
+    public static final byte[] min = "database.min".getBytes();
+    public static final byte[] max = "database.max".getBytes();
+    public static final byte[] lifeTime = "database.lifetime".getBytes();
 
     private Resource() {
     }

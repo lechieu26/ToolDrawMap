@@ -34,6 +34,26 @@ public class Manager {
    private List<EffectTemplate> effectTemplates;
    private List<MapTemplate> mapTemplates;
 
+   public interface DataChangeListener {
+      void onDataChanged();
+   }
+
+   private List<DataChangeListener> listeners = new ArrayList<>();
+
+   public void addDataChangeListener(DataChangeListener listener) {
+      this.listeners.add(listener);
+   }
+
+   public void removeDataChangeListener(DataChangeListener listener) {
+      this.listeners.remove(listener);
+   }
+
+   private void notifyDataChanged() {
+      for (DataChangeListener listener : this.listeners) {
+         listener.onDataChanged();
+      }
+   }
+
    public static Manager gI() {
       if (I == null) {
          I = new Manager();
@@ -46,6 +66,36 @@ public class Manager {
       new Thread(() -> {
          this.load();
          Logger.warning("Load dữ liệu hoàn tất!\n");
+      }).start();
+   }
+
+   public void reload() {
+      new Thread(() -> {
+         Logger.warning("Đang reload toàn bộ dữ liệu từ Database...\n");
+         this.load();
+         this.notifyDataChanged();
+         Logger.success("Reload dữ liệu hoàn tất!\n");
+      }).start();
+   }
+
+   public void reloadNpcTemplate() {
+      new Thread(() -> {
+         this.loadNpcTemplate();
+         this.notifyDataChanged();
+      }).start();
+   }
+
+   public void reloadMobTemplate() {
+      new Thread(() -> {
+         this.loadMobTemplate();
+         this.notifyDataChanged();
+      }).start();
+   }
+
+   public void reloadItemTemplate() {
+      new Thread(() -> {
+         this.loadItemTemplate();
+         this.notifyDataChanged();
       }).start();
    }
 

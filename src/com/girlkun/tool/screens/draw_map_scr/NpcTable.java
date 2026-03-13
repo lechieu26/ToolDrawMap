@@ -91,6 +91,10 @@ public class NpcTable extends JFrame {
       }
    }
 
+   public void load() {
+      this.fillToTable();
+   }
+
    private void fillToTable() {
       this.model1.setRowCount(0);
 

@@ -6,6 +6,10 @@ import com.girlkun.tool.screens.draw_map_scr.DrawMapScr;
 import com.girlkun.tool.screens.npc_scr.CreateNPCScr;
 import com.girlkun.tool.screens.server.ServerRunnerScr;
 import com.girlkun.tool.screens.mob_reward.MobRewardScr;
+import com.girlkun.tool.screens.effect_scr.EffectEditor;
+import com.girlkun.tool.screens.mob_scr.MobEditor;
+import com.girlkun.tool.screens.sprite_scr.SpriteEditorScr;
+import com.girlkun.tool.screens.path_scr.PathEditor;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -339,11 +343,30 @@ public class Main extends JFrame {
     }
 
     private void openPathEditor() {
-        openExternalTool(
-                "Path Editor",
-                "src/PathEditor",
-                "NROPartEditor.exe",
-                "Chỉnh sửa animation path cho nhân vật NRO");
+        minimizeAllFrames();
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof PathEditor) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+        PathEditor scr = new PathEditor();
+        desktop.add(scr);
+        scr.setLocation(0, 0);
+        scr.setVisible(true);
+        try {
+            scr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
     private void btnCreateItemIconActionPerformed(ActionEvent evt) {
@@ -355,11 +378,30 @@ public class Main extends JFrame {
     }
 
     private void openMobEditor() {
-        openExternalTool(
-                "Mob Editor",
-                "src/ModEditor",
-                "MobEditor.exe",
-                "Chỉnh sửa thông tin quái (Mob) cho game NRO");
+        minimizeAllFrames();
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof MobEditor) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+        MobEditor scr = new MobEditor();
+        desktop.add(scr);
+        scr.setLocation(0, 0);
+        scr.setVisible(true);
+        try {
+            scr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
     private void btnImageScalerActionPerformed(ActionEvent evt) {
@@ -603,19 +645,57 @@ public class Main extends JFrame {
     }
 
     private void openEffectEditor() {
-        openExternalTool(
-                "Effect Editor",
-                "src/EffectEditor",
-                "EffectEditor.exe",
-                "Chỉnh sửa hiệu ứng cho game NRO");
+        minimizeAllFrames();
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof EffectEditor) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+        EffectEditor scr = new EffectEditor();
+        desktop.add(scr);
+        scr.setLocation(0, 0);
+        scr.setVisible(true);
+        try {
+            scr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
     private void openSpriteEditor() {
-        openExternalTool(
-                "Sprite Editor",
-                "src/CreateItemIcon",
-                "SpriteEditor.exe",
-                "Tạo và chỉnh sửa Item icon, sprite");
+        minimizeAllFrames();
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof SpriteEditorScr) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+        SpriteEditorScr scr = new SpriteEditorScr();
+        desktop.add(scr);
+        scr.setLocation(0, 0);
+        scr.setVisible(true);
+        try {
+            scr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
     }
 
     private void openExternalTool(String name, String path, String exe, String desc) {
