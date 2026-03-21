@@ -46,14 +46,17 @@ public class SpriteCutterPanel extends JPanel {
         JButton btnLoad = createStyledButton("Chọn Ảnh", ACCENT_COLOR);
         JButton btnDetect = createStyledButton("Tự Động Tìm Sprite", SUCCESS_COLOR);
         JButton btnSave = createStyledButton("Lưu Tất Cả", WARNING_COLOR);
+        JButton btnOpenOutput = createStyledButton("Open Folder Output", ACCENT_COLOR);
 
         btnLoad.addActionListener(e -> loadImage());
         btnDetect.addActionListener(e -> detectSprites());
         btnSave.addActionListener(e -> saveSprites());
+        btnOpenOutput.addActionListener(e -> openOutputFolder());
 
         topPanel.add(btnLoad);
         topPanel.add(btnDetect);
         topPanel.add(btnSave);
+        topPanel.add(btnOpenOutput);
 
         add(topPanel, BorderLayout.NORTH);
 
@@ -262,38 +265,47 @@ public class SpriteCutterPanel extends JPanel {
         }
     }
 
+    private void openOutputFolder() {
+        File outDir = new File("outputs/SptiteCutter");
+        if (!outDir.exists()) {
+            outDir.mkdirs();
+        }
+        try {
+            Desktop.getDesktop().open(outDir);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Không thể mở thư mục: " + e.getMessage());
+        }
+    }
+
     private void saveSprites() {
         if (bboxes.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Không có sprite nào để lưu!");
             return;
         }
 
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        int result = chooser.showSaveDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File outDir = chooser.getSelectedFile();
+        File outDir = new File("outputs/SptiteCutter");
+        if (!outDir.exists()) {
             outDir.mkdirs();
+        }
 
-            String baseName = currentFile.getName().substring(0, currentFile.getName().lastIndexOf('.'));
-            int count = 0;
-            for (int i = 0; i < bboxes.size(); i++) {
-                Rectangle r = bboxes.get(i);
-                BufferedImage sprite = originalImg.getSubimage(r.x, r.y, r.width, r.height);
-                try {
-                    File outFile = new File(outDir, String.format("%s_%03d.png", baseName, i));
-                    ImageIO.write(sprite, "PNG", outFile);
-                    count++;
-                } catch (IOException e) {
-                    System.err.println("Lỗi khi lưu " + i);
-                }
-            }
-            JOptionPane.showMessageDialog(this,
-                    String.format("Đã lưu %d sprite vào thư mục:\n%s", count, outDir.getAbsolutePath()));
+        String baseName = currentFile != null ? currentFile.getName().substring(0, currentFile.getName().lastIndexOf('.')) : "sprite";
+        int count = 0;
+        for (int i = 0; i < bboxes.size(); i++) {
+            Rectangle r = bboxes.get(i);
+            BufferedImage sprite = originalImg.getSubimage(r.x, r.y, r.width, r.height);
             try {
-                Desktop.getDesktop().open(outDir);
-            } catch (Exception ignored) {
+                File outFile = new File(outDir, String.format("%s_%03d.png", baseName, i));
+                ImageIO.write(sprite, "PNG", outFile);
+                count++;
+            } catch (IOException e) {
+                System.err.println("Lỗi khi lưu " + i);
             }
+        }
+        JOptionPane.showMessageDialog(this,
+                String.format("Đã lưu %d sprite vào thư mục:\n%s", count, outDir.getAbsolutePath()));
+        try {
+            Desktop.getDesktop().open(outDir);
+        } catch (Exception ignored) {
         }
     }
 

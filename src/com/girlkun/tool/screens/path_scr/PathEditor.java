@@ -151,6 +151,7 @@ public class PathEditor extends JInternalFrame {
     private JSlider speedSlider;
     private JLabel lblSpeedValue;
     private ScrollableResourcePanel resPanel;
+    private String lastDir = ".";
 
     public PathEditor() {
         super("Path Editor", true, true, true, true);
@@ -202,15 +203,23 @@ public class PathEditor extends JInternalFrame {
         btnExportTxt.addActionListener(e -> exportTxt());
         topBar.add(btnExportTxt);
 
+        JButton btnRunPython = new JButton("Run tool python");
+        styleButton(btnRunPython, new Color(241, 196, 15), new Color(30, 30, 30));
+        btnRunPython.addActionListener(e -> runToolPython());
+        topBar.add(btnRunPython);
+
         add(topBar, BorderLayout.NORTH);
 
         // Main Split
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        mainSplit.setDividerLocation(400);
 
         // Left: Resources
         resPanel = new ScrollableResourcePanel();
+        resPanel.setPreferredSize(new Dimension(360, 800));
+        resPanel.setMinimumSize(new Dimension(360, 0));
         mainSplit.setLeftComponent(resPanel);
+        mainSplit.setDividerLocation(360);
+        mainSplit.setResizeWeight(0.0);
 
         // Middle & Right Parent
         JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -251,16 +260,17 @@ public class PathEditor extends JInternalFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int trackHeight = 4;
                 int trackY = trackRect.y + (trackRect.height - trackHeight) / 2;
-                
+
                 // Draw background (white)
                 g2.setColor(Color.WHITE);
                 g2.fillRoundRect(trackRect.x, trackY, trackRect.width, trackHeight, 2, 2);
-                
+
                 // Draw filled part (purple)
                 int fillWidth = thumbRect.x + thumbRect.width / 2 - trackRect.x;
                 g2.setColor(new Color(155, 89, 182)); // Purple
                 g2.fillRoundRect(trackRect.x, trackY, fillWidth, trackHeight, 2, 2);
             }
+
             @Override
             public void paintThumb(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -281,8 +291,6 @@ public class PathEditor extends JInternalFrame {
         lblSpeedValue.setForeground(Color.WHITE);
         lblSpeedValue.setPreferredSize(new Dimension(30, 20));
         playCtrl.add(lblSpeedValue);
-
-
 
         midPanel.add(playCtrl, BorderLayout.NORTH);
 
@@ -665,8 +673,6 @@ public class PathEditor extends JInternalFrame {
         return null;
     }
 
-
-
     private void saveState() {
         List<List<Layer>> snapshot = new ArrayList<>();
         for (List<Layer> fr : frames) {
@@ -744,6 +750,26 @@ public class PathEditor extends JInternalFrame {
         btnReset.setEnabled(hasUserImages);
     }
 
+    private void runToolPython() {
+        File exeFile = new File("external tools/PathEditor/NROPartEditor.exe");
+        if (!exeFile.exists()) {
+            JOptionPane.showMessageDialog(this,
+                    "Không tìm thấy file: " + exeFile.getAbsolutePath(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder(exeFile.getAbsolutePath());
+            pb.directory(exeFile.getParentFile());
+            pb.start();
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Lỗi khi chạy tool: " + ex.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
     private boolean isFixedSlot(int type, int idx) {
         Map<Integer, String> map = FIXED_SLOTS.get(type);
         return map != null && map.containsKey(idx);
@@ -777,9 +803,10 @@ public class PathEditor extends JInternalFrame {
     private void loadTxt() {
         FileDialog fd = new FileDialog((Frame) SwingUtilities.getWindowAncestor(this), "Load TXT", FileDialog.LOAD);
         fd.setFile("*.txt");
-        fd.setDirectory(".");
+        fd.setDirectory(lastDir);
         fd.setVisible(true);
         if (fd.getFile() != null) {
+            lastDir = fd.getDirectory();
             loadDataInternal(new File(fd.getDirectory(), fd.getFile()), false);
         }
     }
@@ -884,9 +911,10 @@ public class PathEditor extends JInternalFrame {
     private void exportTxt() {
         FileDialog fd = new FileDialog((Frame) SwingUtilities.getWindowAncestor(this), "Export TXT", FileDialog.SAVE);
         fd.setFile("*.txt");
-        fd.setDirectory(".");
+        fd.setDirectory(lastDir);
         fd.setVisible(true);
         if (fd.getFile() != null) {
+            lastDir = fd.getDirectory();
             File f = new File(fd.getDirectory(), fd.getFile());
             if (!f.getName().toLowerCase().endsWith(".txt")) {
                 f = new File(f.getAbsolutePath() + ".txt");
@@ -1178,7 +1206,9 @@ public class PathEditor extends JInternalFrame {
                 for (int i = 0; i < counts[t]; i++) {
                     grid.add(createSlot(t, i));
                 }
-                content.add(grid);
+                JPanel gridWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+                gridWrapper.add(grid);
+                content.add(gridWrapper);
             }
             content.revalidate();
             content.repaint();
@@ -1188,7 +1218,7 @@ public class PathEditor extends JInternalFrame {
             JPanel p = new JPanel(new BorderLayout());
             p.setBackground(Color.WHITE);
             p.setBorder(new LineBorder(Color.GRAY));
-            p.setPreferredSize(new Dimension(80, 70));
+            p.setPreferredSize(new Dimension(85, 90));
 
             boolean fixed = isFixedSlot(type, idx);
             JLabel lbl = new JLabel("ID " + (idx + 1) + (fixed ? " (F)" : ""));
@@ -1200,7 +1230,7 @@ public class PathEditor extends JInternalFrame {
             JLabel imgLbl = new JLabel();
             imgLbl.setHorizontalAlignment(SwingConstants.CENTER);
             if (pi != null) {
-                imgLbl.setIcon(new ImageIcon(getScaledImage(pi.img, 60, 40)));
+                imgLbl.setIcon(new ImageIcon(getScaledImage(pi.img, 65, 75)));
                 if (highlightedPart != null && highlightedPart[0] == type && highlightedPart[1] == idx) {
                     p.setBorder(new LineBorder(Color.RED, 2));
                 }
@@ -1234,11 +1264,12 @@ public class PathEditor extends JInternalFrame {
                 FileDialog.LOAD);
         fd.setMultipleMode(true);
         fd.setFile("*.png");
-        fd.setDirectory(".");
+        fd.setDirectory(lastDir);
         fd.setVisible(true);
 
         File[] files = fd.getFiles();
         if (files != null && files.length > 0) {
+            lastDir = fd.getDirectory();
             saveState();
             int currentT = type, currentI = idx;
             for (File f : files) {
@@ -1281,7 +1312,12 @@ public class PathEditor extends JInternalFrame {
         canvas.repaint();
     }
 
-    private BufferedImage getScaledImage(BufferedImage src, int w, int h) {
+    private BufferedImage getScaledImage(BufferedImage src, int maxWidth, int maxHeight) {
+        if (src == null)
+            return null;
+        double ratio = Math.min((double) maxWidth / src.getWidth(), (double) maxHeight / src.getHeight());
+        int w = Math.max(1, (int) (src.getWidth() * ratio));
+        int h = Math.max(1, (int) (src.getHeight() * ratio));
         BufferedImage resized = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = resized.createGraphics();
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
