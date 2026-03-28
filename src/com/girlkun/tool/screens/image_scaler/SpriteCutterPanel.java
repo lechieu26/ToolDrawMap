@@ -207,12 +207,41 @@ public class SpriteCutterPanel extends JPanel {
             }
         }
 
-        // Sắp xếp (Y trước, X sau)
-        bboxes.sort((r1, r2) -> {
-            if (r1.y != r2.y)
-                return Integer.compare(r1.y, r2.y);
-            return Integer.compare(r1.x, r2.x);
-        });
+        // Sắp xếp theo thứ tự đọc (Hàng trước, Cột sau)
+        // Sử dụng logic gom nhóm theo hàng với sai số cho phép về Y
+        if (!bboxes.isEmpty()) {
+            // Sắp xếp sơ bộ theo Y để dễ dàng gom nhóm các hàng từ trên xuống dưới
+            bboxes.sort((r1, r2) -> Integer.compare(r1.y, r2.y));
+
+            List<List<Rectangle>> rows = new ArrayList<>();
+            List<Rectangle> currentRow = new ArrayList<>();
+            currentRow.add(bboxes.get(0));
+            rows.add(currentRow);
+
+            for (int i = 1; i < bboxes.size(); i++) {
+                Rectangle r = bboxes.get(i);
+                Rectangle firstInRow = currentRow.get(0);
+
+                // Ngưỡng để xác định cùng một hàng: 
+                // Nếu Y của sprite mới nằm trong khoảng 70% chiều cao của sprite đầu hàng
+                // thì coi như cùng một hàng (giúp xử lý các sprite cao thấp khác nhau).
+                if (r.y < firstInRow.y + firstInRow.height * 0.7) {
+                    currentRow.add(r);
+                } else {
+                    currentRow = new ArrayList<>();
+                    currentRow.add(r);
+                    rows.add(currentRow);
+                }
+            }
+
+            // Xóa danh sách cũ và nạp lại theo thứ tự đã được sắp xếp trong từng hàng
+            bboxes.clear();
+            for (List<Rectangle> row : rows) {
+                // Sắp xếp các sprite trong cùng một hàng theo trục X (trái qua phải)
+                row.sort((r1, r2) -> Integer.compare(r1.x, r2.x));
+                bboxes.addAll(row);
+            }
+        }
 
         statusLabel.setText(String.format(" Tìm thấy %d sprite(s)", bboxes.size()));
         repaint();

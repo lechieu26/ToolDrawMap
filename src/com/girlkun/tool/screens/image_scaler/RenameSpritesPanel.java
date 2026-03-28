@@ -28,7 +28,8 @@ public class RenameSpritesPanel extends JPanel {
     private JTextArea missingIdArea;
     private JTextField startNumField;
     private JLabel statusLabel;
-    private File lastFolder;
+    private File lastImagesFolder;
+    private File lastCheckIdFolder;
 
     public RenameSpritesPanel() {
         setBackground(BG_COLOR);
@@ -192,8 +193,8 @@ public class RenameSpritesPanel extends JPanel {
         Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
         FileDialog dialog = new FileDialog(parent, "Chọn ảnh", FileDialog.LOAD);
         dialog.setMultipleMode(true);
-        if (lastFolder != null && lastFolder.exists()) {
-            dialog.setDirectory(lastFolder.getAbsolutePath());
+        if (lastImagesFolder != null && lastImagesFolder.exists()) {
+            dialog.setDirectory(lastImagesFolder.getAbsolutePath());
         }
         dialog.setFilenameFilter((dir, name) -> {
             String lower = name.toLowerCase();
@@ -214,7 +215,7 @@ public class RenameSpritesPanel extends JPanel {
                 }
                 if (!exists) {
                     listModel.addElement(new FileItem(f));
-                    lastFolder = f.getParentFile();
+                    lastImagesFolder = f.getParentFile();
                 }
             }
             updateStatus();
@@ -222,28 +223,22 @@ public class RenameSpritesPanel extends JPanel {
     }
 
     private void checkMissingIds() {
-        File folder = null;
-        if (!listModel.isEmpty()) {
-            folder = listModel.get(0).file.getParentFile();
-            lastFolder = folder;
-        } else if (lastFolder != null && lastFolder.exists()) {
-            folder = lastFolder;
-        } else {
-            Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
-            FileDialog chooser = new FileDialog(parent, "Chọn thư mục", FileDialog.LOAD);
-            if (lastFolder != null && lastFolder.exists()) {
-                chooser.setDirectory(lastFolder.getAbsolutePath());
-            }
-            // Mẹo cho Windows: Cho phép click "Open" khi chưa chọn file hoặc chọn bất kỳ file nào để lấy thư mục
-            chooser.setVisible(true);
-            
-            String dir = chooser.getDirectory();
-            if (dir != null) {
-                folder = new File(dir);
-                lastFolder = folder;
-            }
+        JFileChooser chooser = new JFileChooser();
+        if (lastCheckIdFolder != null && lastCheckIdFolder.exists()) {
+            chooser.setCurrentDirectory(lastCheckIdFolder);
         }
+        chooser.setDialogTitle("Chọn thư mục để check ID trống");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        
+        int result = chooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File folder = chooser.getSelectedFile();
+            lastCheckIdFolder = folder;
+            checkMissingIdsInFolder(folder);
+        }
+    }
 
+    private void checkMissingIdsInFolder(File folder) {
         if (folder == null || !folder.exists()) return;
 
         try {
@@ -381,7 +376,7 @@ public class RenameSpritesPanel extends JPanel {
             listModel.clear();
             updateStatus();
             startNumField.setText("");
-            checkMissingIds();
+            checkMissingIdsInFolder(folder);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }

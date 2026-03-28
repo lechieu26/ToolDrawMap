@@ -152,6 +152,8 @@ public class PathEditor extends JInternalFrame {
     private JLabel lblSpeedValue;
     private ScrollableResourcePanel resPanel;
     private String lastDir = ".";
+    private JCheckBox chkHeadInFront;
+
 
     public PathEditor() {
         super("Path Editor", true, true, true, true);
@@ -291,6 +293,13 @@ public class PathEditor extends JInternalFrame {
         lblSpeedValue.setForeground(Color.WHITE);
         lblSpeedValue.setPreferredSize(new Dimension(30, 20));
         playCtrl.add(lblSpeedValue);
+
+        chkHeadInFront = new JCheckBox("Head in front");
+        chkHeadInFront.setBackground(new Color(60, 63, 65));
+        chkHeadInFront.setForeground(Color.WHITE);
+        chkHeadInFront.setFocusPainted(false);
+        chkHeadInFront.addActionListener(e -> canvas.repaint());
+        playCtrl.add(chkHeadInFront);
 
         midPanel.add(playCtrl, BorderLayout.NORTH);
 
@@ -991,25 +1000,34 @@ public class PathEditor extends JInternalFrame {
                     } else {
                         List<Layer> fr = frames.get(currentFrameIdx);
                         int clickedIdx = -1;
-                        // Prioritize Body (Type 1)
-                        for (int i = fr.size() - 1; i >= 0; i--) {
-                            Layer l = fr.get(i);
-                            if (l.type != 1)
-                                continue;
-                            if (checkHit(l, cx, cy, e.getX(), e.getY())) {
+
+                        List<Integer> hitIndices = new ArrayList<>();
+                        for (int i = 0; i < fr.size(); i++)
+                            hitIndices.add(i);
+
+                        hitIndices.sort((aIdx, bIdx) -> {
+                            Layer la = fr.get(aIdx);
+                            Layer lb = fr.get(bIdx);
+                            if (chkHeadInFront.isSelected()) {
+                                // Order: Leg(2) -> Body(1) -> Head(0)
+                                // Click priority (reverse of draw): Head(0) > Body(1) > Leg(2)
+                                int pA = (la.type == 0) ? 2 : (la.type == 1) ? 1 : 0;
+                                int pB = (lb.type == 0) ? 2 : (lb.type == 1) ? 1 : 0;
+                                return Integer.compare(pB, pA);
+                            } else {
+                                // Original priority: Body(1) > others
+                                if (la.type == 1 && lb.type != 1)
+                                    return -1;
+                                if (la.type != 1 && lb.type == 1)
+                                    return 1;
+                                return bIdx.compareTo(aIdx);
+                            }
+                        });
+
+                        for (int i : hitIndices) {
+                            if (checkHit(fr.get(i), cx, cy, e.getX(), e.getY())) {
                                 clickedIdx = i;
                                 break;
-                            }
-                        }
-                        if (clickedIdx == -1) {
-                            for (int i = fr.size() - 1; i >= 0; i--) {
-                                Layer l = fr.get(i);
-                                if (l.type == 1)
-                                    continue;
-                                if (checkHit(l, cx, cy, e.getX(), e.getY())) {
-                                    clickedIdx = i;
-                                    break;
-                                }
                             }
                         }
 
@@ -1136,13 +1154,20 @@ public class PathEditor extends JInternalFrame {
             for (int i = 0; i < fr.size(); i++)
                 sortedIndices.add(i);
             sortedIndices.sort((aIdx, bIdx) -> {
-                int typeA = fr.get(aIdx).type;
-                int typeB = fr.get(bIdx).type;
-                if (typeA == 1 && typeB != 1)
-                    return 1;
-                if (typeA != 1 && typeB == 1)
-                    return -1;
-                return aIdx.compareTo(bIdx);
+                Layer la = fr.get(aIdx);
+                Layer lb = fr.get(bIdx);
+                if (chkHeadInFront.isSelected()) {
+                    // Order: Leg(2) -> Body(1) -> Head(0)
+                    int pA = (la.type == 0) ? 2 : (la.type == 1) ? 1 : 0;
+                    int pB = (lb.type == 0) ? 2 : (lb.type == 1) ? 1 : 0;
+                    return Integer.compare(pA, pB);
+                } else {
+                    if (la.type == 1 && lb.type != 1)
+                        return 1;
+                    if (la.type != 1 && lb.type == 1)
+                        return -1;
+                    return aIdx.compareTo(bIdx);
+                }
             });
 
             for (int i : sortedIndices) {
