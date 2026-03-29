@@ -18,79 +18,131 @@ public class GirlkunDB {
    private static GirlkunDatasource[] datasource;
    public static boolean LOG_QUERY = false;
 
+   private static void setupConfig(HikariConfig c, String driver, String url, String user, String pass, int min,
+         int max, int lifeTime) {
+      c.setDriverClassName(driver);
+      c.setJdbcUrl(url);
+      c.setUsername(user);
+      c.setPassword(pass);
+      c.setMinimumIdle(min);
+      c.setMaximumPoolSize(max);
+      c.setMaxLifetime((long) lifeTime);
+      c.addDataSourceProperty("cachePrepStmts", "true");
+      c.addDataSourceProperty("prepStmtCacheSize", "250");
+      c.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+   }
+
    public static void loadDatasource() {
       Properties properties = new Properties();
 
       try {
          properties.load(new FileInputStream(new String(Resource.pathFileProperties)));
          Object value = null;
-         
-         // Fix: Nếu không có girlkun.database.amount thì mặc định là 1 (vì config.properties cũ không có số lượng)
+
          int n = 1;
          if ((value = properties.get(new String(Resource.amount))) != null) {
             n = Integer.parseInt(String.valueOf(value));
          }
-         
+
          datasource = new GirlkunDatasource[n];
 
          for (int i = 0; i < n; i++) {
-            String nameDS = "GIRLKUN"; // Mặc định cho Draw Map
+            String nameDS = "GIRLKUN";
             String driver = new String(Resource.defaultDriver);
             String urlFormat = "jdbc:mysql://%s:%s/%s?useUnicode=yes&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useSSL=false";
             String host = "localhost";
             String port = "3306";
-            String name = "nrosamurai";
+            String name = "tomahoc_db";
             String user = "root";
             String pass = "";
             int minCon = 1;
             int maxCon = 5;
             int maxLifeTime = 1800000;
 
-            // Đọc cấu hình (ưu tiên theo index nếu có, nếu không lấy cấu hình chung)
             String suffix = (n > 1) ? String.valueOf(i) : "";
-            
-            if ((value = properties.get(new String(Resource.dsName) + suffix)) != null) nameDS = String.valueOf(value);
-            if ((value = properties.get(new String(Resource.driver) + suffix)) != null) driver = String.valueOf(value);
-            else if ((value = properties.get(new String(Resource.driver))) != null) driver = String.valueOf(value);
-            
-            if ((value = properties.get(new String(Resource.host) + suffix)) != null) host = String.valueOf(value);
-            else if ((value = properties.get(new String(Resource.host))) != null) host = String.valueOf(value);
-            
-            if ((value = properties.get(new String(Resource.port) + suffix)) != null) port = String.valueOf(value);
-            else if ((value = properties.get(new String(Resource.port))) != null) port = String.valueOf(value);
-            
-            if ((value = properties.get(new String(Resource.name) + suffix)) != null) name = String.valueOf(value);
-            else if ((value = properties.get(new String(Resource.name))) != null) name = String.valueOf(value);
-            
-            if ((value = properties.get(new String(Resource.user) + suffix)) != null) user = String.valueOf(value);
-            else if ((value = properties.get(new String(Resource.user))) != null) user = String.valueOf(value);
-            
-            if ((value = properties.get(new String(Resource.pass) + suffix)) != null) pass = String.valueOf(value);
-            else if ((value = properties.get(new String(Resource.pass))) != null) pass = String.valueOf(value);
+
+            if ((value = properties.get(new String(Resource.dsName) + suffix)) != null)
+               nameDS = String.valueOf(value);
+            if ((value = properties.get(new String(Resource.driver) + suffix)) != null)
+               driver = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.driver))) != null)
+               driver = String.valueOf(value);
+
+            if ((value = properties.get(new String(Resource.host) + suffix)) != null)
+               host = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.host))) != null)
+               host = String.valueOf(value);
+
+            if ((value = properties.get(new String(Resource.port) + suffix)) != null)
+               port = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.port))) != null)
+               port = String.valueOf(value);
+
+            if ((value = properties.get(new String(Resource.name) + suffix)) != null)
+               name = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.name))) != null)
+               name = String.valueOf(value);
+
+            if ((value = properties.get(new String(Resource.user) + suffix)) != null)
+               user = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.user))) != null)
+               user = String.valueOf(value);
+
+            if ((value = properties.get(new String(Resource.pass) + suffix)) != null)
+               pass = String.valueOf(value);
+            else if ((value = properties.get(new String(Resource.pass))) != null)
+               pass = String.valueOf(value);
 
             if ((value = properties.get("database.url")) != null) {
-                // Nếu có URL đầy đủ trong config.properties, dùng luôn
-                urlFormat = String.valueOf(value);
+               urlFormat = String.valueOf(value);
+            }
+
+            String finalUrl = urlFormat.contains("%s") ? String.format(urlFormat, host, port, name) : urlFormat;
+
+            // Thử mật khẩu trước khi khởi tạo Hikari (Tự động thích nghi với XAMPP mật khẩu
+            // trống hoặc 123456)
+            if (user.equals("root")) {
+               try {
+                  Class.forName(driver);
+                  try (Connection conn = java.sql.DriverManager.getConnection(finalUrl, user, pass)) {
+                     // OK
+                  } catch (java.sql.SQLException e) {
+                     if (e.getMessage().contains("Access denied") || e.getErrorCode() == 1045) {
+                        boolean found = false;
+                        // Thử mật khẩu TRỐNG
+                        if (!pass.isEmpty()) {
+                           try (Connection conn2 = java.sql.DriverManager.getConnection(finalUrl, user, "")) {
+                              pass = "";
+                              logger.warn("Mật khẩu root sai, đã chuyển sang mật khẩu TRỐNG.");
+                              found = true;
+                           } catch (java.sql.SQLException e2) {
+                           }
+                        }
+                        // Thử mật khẩu 123456
+                        if (!found && !pass.equals("123456")) {
+                           try (Connection conn2 = java.sql.DriverManager.getConnection(finalUrl, user, "123456")) {
+                              pass = "123456";
+                              logger.warn("Mật khẩu root sai, đã chuyển sang mật khẩu 123456.");
+                              found = true;
+                           } catch (java.sql.SQLException e3) {
+                           }
+                        }
+                     }
+                  }
+               } catch (Exception e) {
+               }
             }
 
             HikariConfig config = new HikariConfig();
-            config.setDriverClassName(driver);
-            if (urlFormat.contains("%s")) {
-                config.setJdbcUrl(String.format(urlFormat, host, port, name));
-            } else {
-                config.setJdbcUrl(urlFormat);
+            setupConfig(config, driver, finalUrl, user, pass, minCon, maxCon, maxLifeTime);
+
+            try {
+               datasource[i] = new GirlkunDatasource(nameDS, config);
+               logger.info("Load thành công datasource: " + nameDS);
+            } catch (Exception e) {
+               logger.error("KHÔNG THỂ KẾT NỐI DATABASE " + nameDS + ": " + e.getMessage());
+               System.exit(0);
             }
-            config.setUsername(user);
-            config.setPassword(pass);
-            config.setMinimumIdle(minCon);
-            config.setMaximumPoolSize(maxCon);
-            config.setMaxLifetime((long) maxLifeTime);
-            // ... (keep other settings)
-            config.addDataSourceProperty("cachePrepStmts", "true");
-            config.addDataSourceProperty("prepStmtCacheSize", "250");
-            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-            datasource[i] = new GirlkunDatasource(nameDS, config);
-            logger.info("Load thành công datasource: " + nameDS);
          }
 
          if ((value = properties.get("girlkun.database.log")) != null) {
@@ -108,19 +160,20 @@ public class GirlkunDB {
     * Reload database configuration
     */
    public static void reload() {
-       try {
-           if (datasource != null) {
-               close();
-           }
-           loadDatasource();
-           logger.info("Database configuration reloaded successfully.");
-       } catch (Exception e) {
-           logger.error("Error reloading database configuration: " + e.getMessage());
-       }
+      try {
+         if (datasource != null) {
+            close();
+         }
+         loadDatasource();
+         logger.info("Database configuration reloaded successfully.");
+      } catch (Exception e) {
+         logger.error("Error reloading database configuration: " + e.getMessage());
+      }
    }
 
    public static void close() {
-      if (datasource == null) return;
+      if (datasource == null)
+         return;
       for (GirlkunDatasource ds : datasource) {
          if (ds != null) {
             ds.close();
