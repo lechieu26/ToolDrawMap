@@ -43,6 +43,33 @@ public class CreateBossScr extends JInternalFrame {
     private List<PartFrame> bodyFrames = new ArrayList<>();
     private List<PartFrame> legFrames = new ArrayList<>();
     private Map<Integer, BufferedImage> iconCache = new HashMap<>();
+    private Map<Integer, ImageIcon> smallIconCache = new HashMap<>();
+
+    private ImageIcon getSmallIcon(int id) {
+        if (smallIconCache.containsKey(id)) {
+            return smallIconCache.get(id);
+        }
+        BufferedImage img = loadIcon(id);
+        if (img != null) {
+            int maxDim = 70;
+            int w = img.getWidth();
+            int h = img.getHeight();
+            if (w > h) {
+                h = (h * maxDim) / Math.max(w, 1);
+                w = maxDim;
+            } else {
+                w = (w * maxDim) / Math.max(h, 1);
+                h = maxDim;
+            }
+            if (w <= 0) w = 1;
+            if (h <= 0) h = 1;
+            ImageIcon ic = new ImageIcon(img.getScaledInstance(w, h, Image.SCALE_SMOOTH));
+            smallIconCache.put(id, ic);
+            return ic;
+        }
+        smallIconCache.put(id, null);
+        return null;
+    }
 
     private int selectedHeadPartId = 0, selectedBodyPartId = 0, selectedLegPartId = 0;
 
@@ -65,9 +92,8 @@ public class CreateBossScr extends JInternalFrame {
     private JTable skillTable;
     private DefaultTableModel skillTableModel;
     private JComboBox<ShopManagerDAO.SkillTemplate> cboSkillEditor;
-        private Map<Integer, ShopManagerDAO.SkillTemplate> skillCache = new HashMap<>();
+    private Map<Integer, ShopManagerDAO.SkillTemplate> skillCache = new HashMap<>();
     private JButton btnReward;
-
 
     private List<ItemOptionTemplate> optionTemplates = new ArrayList<>();
     private String lastRewardConfig = "{}";
@@ -407,7 +433,7 @@ public class CreateBossScr extends JInternalFrame {
             if (r >= 0)
                 skillTableModel.removeRow(r);
         });
-                btnReward = new JButton("Cấu hình Phần thưởng");
+        btnReward = new JButton("Cấu hình Phần thưởng");
 
         btnReward.setBackground(new Color(153, 50, 204));
         btnReward.setForeground(Color.WHITE);
@@ -422,7 +448,7 @@ public class CreateBossScr extends JInternalFrame {
             Window win = SwingUtilities.getWindowAncestor(CreateBossScr.this);
             RewardConfigDialog diag = new RewardConfigDialog(win, b, optionTemplates);
             diag.setVisible(true);
-                        this.lastRewardConfig = b.rewardConfig;
+            this.lastRewardConfig = b.rewardConfig;
             updateRewardButtonText();
 
         });
@@ -437,8 +463,6 @@ public class CreateBossScr extends JInternalFrame {
         sp.add(bp2, BorderLayout.SOUTH);
         return sp;
     }
-
-
 
     private void styleBtn(JButton b, Color c) {
         b.setBackground(c);
@@ -500,9 +524,8 @@ public class CreateBossScr extends JInternalFrame {
         chkEnabled.setSelected(boss.enabled);
         txtSpecialAbilities.setText(boss.specialAbilities);
 
-                                this.lastRewardConfig = boss.rewardConfig != null ? boss.rewardConfig : "{}";
+        this.lastRewardConfig = boss.rewardConfig != null ? boss.rewardConfig : "{}";
         updateRewardButtonText();
-
 
         skillTableModel.setRowCount(0);
         if (boss.skills != null && !boss.skills.isEmpty()) {
@@ -717,7 +740,7 @@ public class CreateBossScr extends JInternalFrame {
         legFrames.clear();
         selectedHeadPartId = selectedBodyPartId = selectedLegPartId = 0;
         txtSpecialAbilities.setText("");
-                lastRewardConfig = "{}";
+        lastRewardConfig = "{}";
         updateRewardButtonText();
 
         canvas.repaint();
@@ -737,30 +760,102 @@ public class CreateBossScr extends JInternalFrame {
         }
     }
 
+    private class PartItem {
+        int id;
+        int iconId;
+
+        public PartItem(int id, int iconId) {
+            this.id = id;
+            this.iconId = iconId;
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(id);
+        }
+    }
+
     private class OutfitSelectorDialog extends JDialog {
         private int selectedId = -1;
 
         public OutfitSelectorDialog(String type) {
             super((Frame) null, "Chọn " + type, true);
-            setSize(400, 500);
+            setSize(380, 500);
             setLocationRelativeTo(null);
             setLayout(new BorderLayout());
 
-            DefaultListModel<String> model = new DefaultListModel<>();
-            JList<String> list = new JList<>(model);
+            DefaultListModel<PartItem> model = new DefaultListModel<>();
+            JList<PartItem> list = new JList<>(model);
+            list.setLayoutOrientation(JList.HORIZONTAL_WRAP);
+            list.setVisibleRowCount(-1);
+            list.setFixedCellWidth(85);
+            list.setFixedCellHeight(85);
+
+            list.setCellRenderer(new DefaultListCellRenderer() {
+                @Override
+                public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                    JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                    label.setHorizontalAlignment(SwingConstants.CENTER);
+                    label.setVerticalAlignment(SwingConstants.CENTER);
+                    if (value instanceof PartItem) {
+                        PartItem part = (PartItem) value;
+                        label.setText(null);
+                        label.setToolTipText("Part ID: " + part.id);
+                        if (part.iconId > 0) {
+                            label.setIcon(getSmallIcon(part.iconId));
+                        } else {
+                            label.setIcon(null);
+                            label.setText(String.valueOf(part.id));
+                        }
+                    }
+                    return label;
+                }
+            });
 
             // Load IDs from DB part_template
-            new SwingWorker<Void, String>() {
+            new SwingWorker<Void, PartItem>() {
                 @Override
                 protected Void doInBackground() {
                     try {
                         Connection conn = ShopManagerDAO.gI().getConnection();
                         try (PreparedStatement stmt = conn
-                                .prepareStatement("SELECT id FROM part WHERE TYPE = ? LIMIT 500")) {
+                                .prepareStatement("SELECT id, DATA FROM part WHERE TYPE = ? LIMIT 500")) {
                             stmt.setInt(1, type.equals("head") ? 0 : (type.equals("body") ? 1 : 2));
                             ResultSet rs = stmt.executeQuery();
-                            while (rs.next())
-                                publish(String.valueOf(rs.getInt("id")));
+                            org.json.simple.parser.JSONParser parser = new org.json.simple.parser.JSONParser();
+                            int targetIdx = (type.equals("body") || type.equals("leg")) ? 1 : 0;
+                            while (rs.next()) {
+                                int pId = rs.getInt("id");
+                                String pData = rs.getString("DATA");
+                                int iconId = -1;
+                                if (pData != null && !pData.isEmpty()) {
+                                    try {
+                                        Object obj = parser.parse(pData);
+                                        if (obj instanceof JSONArray) {
+                                            JSONArray arr = (JSONArray) obj;
+                                            if (arr.size() > targetIdx) {
+                                                Object targetFrameObj = arr.get(targetIdx);
+                                                if (targetFrameObj instanceof JSONArray) {
+                                                    JSONArray frame = (JSONArray) targetFrameObj;
+                                                    if (frame.size() > 0) {
+                                                        iconId = ((Long) frame.get(0)).intValue();
+                                                    }
+                                                }
+                                            } else if (arr.size() > 0) {
+                                                Object fallbackObj = arr.get(0);
+                                                if (fallbackObj instanceof JSONArray) {
+                                                    JSONArray frame = (JSONArray) fallbackObj;
+                                                    if (frame.size() > 0) {
+                                                        iconId = ((Long) frame.get(0)).intValue();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } catch (Exception ex) {
+                                    }
+                                }
+                                publish(new PartItem(pId, iconId));
+                            }
                         }
                     } catch (Exception e) {
                     }
@@ -768,15 +863,27 @@ public class CreateBossScr extends JInternalFrame {
                 }
 
                 @Override
-                protected void process(List<String> chunks) {
-                    for (String s : chunks)
+                protected void process(List<PartItem> chunks) {
+                    for (PartItem s : chunks)
                         model.addElement(s);
                 }
             }.execute();
 
             list.addListSelectionListener(e -> {
                 if (!e.getValueIsAdjusting() && list.getSelectedValue() != null) {
-                    selectedId = Integer.parseInt(list.getSelectedValue());
+                    selectedId = list.getSelectedValue().id;
+                }
+            });
+
+            list.addMouseListener(new MouseAdapter() {
+                public void mouseClicked(MouseEvent evt) {
+                    if (evt.getClickCount() == 2) {
+                        int index = list.locationToIndex(evt.getPoint());
+                        if (index >= 0 && list.getCellBounds(index, index).contains(evt.getPoint())) {
+                            selectedId = model.getElementAt(index).id;
+                            dispose();
+                        }
+                    }
                 }
             });
 
@@ -822,7 +929,7 @@ public class CreateBossScr extends JInternalFrame {
             Graphics2D g2d = (Graphics2D) g;
             int cx = getWidth() / 2, cy = getHeight() / 2 + 50;
             g2d.setColor(Color.WHITE);
-            g2d.drawString("Preview: " + selectedHeadPartId + "-" + selectedBodyPartId + "-" + selectedLegPartId, 10,
+            g2d.drawString("Outfit: " + selectedHeadPartId + "-" + selectedBodyPartId + "-" + selectedLegPartId, 10,
                     20);
 
             // Draw Order: Leg -> Body -> Head (Following CreateBossOld.java)
@@ -831,8 +938,11 @@ public class CreateBossScr extends JInternalFrame {
             drawPart(g2d, "head", cx, cy);
 
             // Draw Animation Name
-            g2d.setColor(Color.YELLOW);
-            g2d.drawString("Anim: " + ANIM_NAMES[currentFrame % ANIM_NAMES.length], 10, 40);
+            /*
+             * g2d.setColor(Color.YELLOW);
+             * g2d.drawString("Anim: " + ANIM_NAMES[currentFrame % ANIM_NAMES.length], 10,
+             * 40);
+             */
         }
 
         private void drawPart(Graphics2D g2d, String type, int cx, int cy) {
@@ -851,11 +961,13 @@ public class CreateBossScr extends JInternalFrame {
             }
         }
     }
+
     private void updateRewardButtonText() {
         int count = 0;
         try {
             if (lastRewardConfig != null && !lastRewardConfig.isEmpty() && !lastRewardConfig.equals("{}")) {
-                org.json.simple.JSONObject rj = (org.json.simple.JSONObject) org.json.simple.JSONValue.parse(lastRewardConfig);
+                org.json.simple.JSONObject rj = (org.json.simple.JSONObject) org.json.simple.JSONValue
+                        .parse(lastRewardConfig);
                 if (rj != null && rj.containsKey("items")) {
                     org.json.simple.JSONArray ia = (org.json.simple.JSONArray) rj.get("items");
                     count = ia.size();
@@ -868,4 +980,3 @@ public class CreateBossScr extends JInternalFrame {
         }
     }
 }
-
