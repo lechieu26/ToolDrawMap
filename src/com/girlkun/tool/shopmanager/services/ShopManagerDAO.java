@@ -69,20 +69,22 @@ public class ShopManagerDAO {
         connection = null;
     }
 
-    // Get active connection or reconnect
-    public Connection getConnection() throws SQLException {
+    // Get active connection or reconnect - Synchronized for thread safety
+    public synchronized Connection getConnection() throws SQLException {
         if (connection == null || connection.isClosed()) {
             connect();
         }
-        // Safe check validation
+        // Safe check validation (MySQL may drop idle connections)
         try {
             if (!connection.isValid(2)) {
-                close();
-                connect();
+                // If invalid, try to reconnect directly
+                String url = config.toConnectionString();
+                connection = DriverManager.getConnection(url, config.user, config.password);
             }
         } catch (Exception e) {
-            close();
-            connect();
+            // Fallback: force reconnect
+            String url = config.toConnectionString();
+            connection = DriverManager.getConnection(url, config.user, config.password);
         }
         return connection;
     }
@@ -1116,5 +1118,117 @@ public class ShopManagerDAO {
             System.out.println("Error loading map templates: " + e.getMessage());
         }
         return list;
+    }
+
+    public List<BossConfig> getAllBossConfigs() {
+        List<BossConfig> list = new ArrayList<>();
+        try {
+            Connection conn = getConnection();
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_config ORDER BY boss_id, level_index")) {
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    BossConfig b = new BossConfig();
+                    b.bossId = rs.getInt("boss_id");
+                    b.bossName = rs.getString("boss_name");
+                    b.gender = rs.getByte("gender");
+                    b.outfit = rs.getString("outfit");
+                    b.dame = rs.getLong("dame");
+                    b.hp = rs.getString("hp");
+                    b.mapJoin = rs.getString("map_join");
+                    b.skills = rs.getString("skills");
+                    b.textS = rs.getString("text_s");
+                    b.textM = rs.getString("text_m");
+                    b.textE = rs.getString("text_e");
+                    b.secondsRest = rs.getInt("seconds_rest");
+                    b.appearType = rs.getByte("appear_type");
+                    b.bossesAppearTogether = rs.getString("bosses_appear_together");
+                    b.levelIndex = rs.getByte("level_index");
+                    b.bossType = rs.getString("boss_type");
+                    b.isNotifyDisabled = rs.getBoolean("is_notify_disabled");
+                    b.isZone01SpawnDisabled = rs.getBoolean("is_zone01_spawn_disabled");
+                    b.spawnCount = rs.getInt("spawn_count");
+                    b.maxDamagePerHit = (Long) rs.getObject("max_damage_per_hit");
+                    b.damageDivisor = (Integer) rs.getObject("damage_divisor");
+                    b.damageFlatReduction = (Long) rs.getObject("damage_flat_reduction");
+                    b.dodgeRate = (Integer) rs.getObject("dodge_rate");
+                    b.pierceReverse = rs.getBoolean("pierce_reverse");
+                    b.autoLeaveTimeout = (Long) rs.getObject("auto_leave_timeout");
+                    b.autoLeaveResetOnPlayer = rs.getBoolean("auto_leave_reset_on_player");
+                    b.autoLeaveRandomMin = (Long) rs.getObject("auto_leave_random_min");
+                    b.autoLeaveRandomMax = (Long) rs.getObject("auto_leave_random_max");
+                    b.appendRandomName = rs.getBoolean("append_random_name");
+                    b.doneChatSToAfk = rs.getBoolean("done_chat_s_to_afk");
+                    b.skipNotifyAtLevel = (Integer) rs.getObject("skip_notify_at_level");
+                    b.skipMoveAtLevel = (Integer) rs.getObject("skip_move_at_level");
+                    b.specialAbilities = rs.getString("special_abilities");
+                    b.rewardConfig = rs.getString("reward_config");
+                    b.customClass = rs.getString("custom_class");
+                    b.enabled = rs.getBoolean("enabled");
+                    list.add(b);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading boss configs: " + e.getMessage());
+        }
+        return list;
+    }
+
+    public void saveBossConfig(BossConfig b) {
+        try {
+            Connection conn = getConnection();
+            String sql = "REPLACE INTO boss_config (" +
+                    "boss_id, boss_name, gender, outfit, dame, hp, map_join, skills, " +
+                    "text_s, text_m, text_e, seconds_rest, appear_type, bosses_appear_together, " +
+                    "level_index, boss_type, is_notify_disabled, is_zone01_spawn_disabled, " +
+                    "spawn_count, max_damage_per_hit, damage_divisor, damage_flat_reduction, " +
+                    "dodge_rate, pierce_reverse, auto_leave_timeout, auto_leave_reset_on_player, " +
+                    "auto_leave_random_min, auto_leave_random_max, append_random_name, " +
+                    "done_chat_s_to_afk, skip_notify_at_level, skip_move_at_level, " +
+                    "special_abilities, reward_config, custom_class, enabled) VALUES (" +
+                    "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setInt(1, b.bossId);
+                stmt.setString(2, b.bossName);
+                stmt.setByte(3, b.gender);
+                stmt.setString(4, b.outfit);
+                stmt.setLong(5, b.dame);
+                stmt.setString(6, b.hp);
+                stmt.setString(7, b.mapJoin);
+                stmt.setString(8, b.skills);
+                stmt.setString(9, b.textS);
+                stmt.setString(10, b.textM);
+                stmt.setString(11, b.textE);
+                stmt.setInt(12, b.secondsRest);
+                stmt.setByte(13, b.appearType);
+                stmt.setString(14, b.bossesAppearTogether);
+                stmt.setByte(15, b.levelIndex);
+                stmt.setString(16, b.bossType);
+                stmt.setBoolean(17, b.isNotifyDisabled);
+                stmt.setBoolean(18, b.isZone01SpawnDisabled);
+                stmt.setInt(19, b.spawnCount);
+                stmt.setObject(20, b.maxDamagePerHit);
+                stmt.setObject(21, b.damageDivisor);
+                stmt.setObject(22, b.damageFlatReduction);
+                stmt.setObject(23, b.dodgeRate);
+                stmt.setBoolean(24, b.pierceReverse);
+                stmt.setObject(25, b.autoLeaveTimeout);
+                stmt.setBoolean(26, b.autoLeaveResetOnPlayer);
+                stmt.setObject(27, b.autoLeaveRandomMin);
+                stmt.setObject(28, b.autoLeaveRandomMax);
+                stmt.setBoolean(29, b.appendRandomName);
+                stmt.setBoolean(30, b.doneChatSToAfk);
+                stmt.setObject(31, b.skipNotifyAtLevel);
+                stmt.setObject(32, b.skipMoveAtLevel);
+                stmt.setString(33, b.specialAbilities);
+                stmt.setString(34, b.rewardConfig);
+                stmt.setString(35, b.customClass);
+                stmt.setBoolean(36, b.enabled);
+                stmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            System.out.println("Error saving boss config: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

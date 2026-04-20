@@ -1053,9 +1053,22 @@ public class MobEditor extends JInternalFrame {
                 Graphics2D g = finalAtlas.createGraphics();
                 g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                         RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                // Crop trực tiếp từ atlas gốc cho mỗi scale factor (giống Python)
+                // thay vì scale up từ x1Images (gây mất chất lượng + sai size)
                 for (int i = 0; i < imgInfo.size(); i++) {
-                    int dw = Math.max(1, coords[i][2] * sf), dh = Math.max(1, coords[i][3] * sf);
-                    g.drawImage(x1Images[i], coords[i][0] * sf, coords[i][1] * sf, dw, dh, null);
+                    SpriteInfo si = imgInfo.get(i);
+                    int rsx = si.getSrcX(), rsy = si.getSrcY(), rsw = si.getSrcW(), rsh = si.getSrcH();
+                    BufferedImage atlasImg = getAtlas();
+                    rsx = Math.max(0, Math.min(rsx, atlasImg.getWidth() - 1));
+                    rsy = Math.max(0, Math.min(rsy, atlasImg.getHeight() - 1));
+                    rsw = Math.min(rsw, atlasImg.getWidth() - rsx);
+                    rsh = Math.min(rsh, atlasImg.getHeight() - rsy);
+                    if (rsw > 0 && rsh > 0) {
+                        BufferedImage region = atlasImg.getSubimage(rsx, rsy, rsw, rsh);
+                        int dw = Math.max(1, coords[i][2] * sf), dh = Math.max(1, coords[i][3] * sf);
+                        BufferedImage rs = EditorUtils.resizeNearest(region, dw, dh);
+                        g.drawImage(rs, coords[i][0] * sf, coords[i][1] * sf, null);
+                    }
                 }
                 g.dispose();
 

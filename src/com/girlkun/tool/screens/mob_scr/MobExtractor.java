@@ -95,7 +95,7 @@ public class MobExtractor extends JInternalFrame {
                 try {
                     java.util.List<File> droppedFiles = (java.util.List<File>) support.getTransferable().getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
                     for (File f : droppedFiles) {
-                        if (f.isFile() && f.getName().toLowerCase().endsWith(".bin")) {
+                        if (f.isFile() && (f.getName().toLowerCase().endsWith(".bin") || !f.getName().contains("."))) {
                             String path = f.getAbsolutePath();
                             if (!files.contains(path)) {
                                 files.add(path);
@@ -222,7 +222,7 @@ public class MobExtractor extends JInternalFrame {
     private void addFiles() {
         FileDialog dialog = new FileDialog((Frame)null, "Chọn file Mob data", FileDialog.LOAD);
         dialog.setMultipleMode(true);
-        dialog.setFile("*.bin");
+        dialog.setFile("*");
         dialog.setVisible(true);
 
         File[] selectedFiles = dialog.getFiles();
@@ -317,8 +317,11 @@ public class MobExtractor extends JInternalFrame {
 
     private void extractFrames(String filePath, String outputBase, int targetScale) throws Exception {
         File file = new File(filePath);
-        String nameNoExt = file.getName().substring(0, file.getName().lastIndexOf('.'));
-        SwingUtilities.invokeLater(() -> log("Processing: " + file.getName()));
+        String fileName = file.getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        String nameNoExt = dotIndex == -1 ? fileName : fileName.substring(0, dotIndex);
+        final String fn = fileName;
+        SwingUtilities.invokeLater(() -> log("Processing: " + fn));
 
         MobData data = parseNroBin(filePath);
         if (data == null) {
