@@ -83,6 +83,7 @@ public class EffectEditor extends JInternalFrame {
     private double canvasScale = 0.5;
     private int bgMode = 2; // 0: Dark, 1: Light, 2: Checkerboard
     private boolean showBBox = true;
+    private boolean showChar = true;
     private int currentScale = 4;
     private int delay = 120;
     private boolean isPlaying = false;
@@ -253,6 +254,9 @@ public class EffectEditor extends JInternalFrame {
         JCheckBox showBoxCheck = new JCheckBox("Viền ảnh", true);
         showBoxCheck.addActionListener(e -> { showBBox = showBoxCheck.isSelected(); frameCanvas.repaint(); });
         
+        JCheckBox showCharCheck = new JCheckBox("Nhân vật", true);
+        showCharCheck.addActionListener(e -> { showChar = showCharCheck.isSelected(); frameCanvas.repaint(); });
+        
         JButton czIn = createStyledButton("+", null);
         czIn.addActionListener(e -> { canvasScale = Math.min(4.0, canvasScale + 0.25); frameCanvas.repaint(); });
         JButton czOut = createStyledButton("-", null);
@@ -274,6 +278,7 @@ public class EffectEditor extends JInternalFrame {
         sortBtn.addActionListener(e -> startSort());
 
         canvasTools.add(showBoxCheck);
+        canvasTools.add(showCharCheck);
         canvasTools.add(czIn);
         canvasTools.add(czOut);
         canvasTools.add(bgBtn);
@@ -1324,7 +1329,7 @@ public class EffectEditor extends JInternalFrame {
             g.drawLine(cx, 0, cx, H);
 
             // Char Ref
-            if (charImg != null) {
+            if (charImg != null && showChar) {
                 double finalZoom = (currentScale / 4.0) * canvasScale;
                 int cw = (int)(charImg.getWidth() * finalZoom);
                 int ch = (int)(charImg.getHeight() * finalZoom);

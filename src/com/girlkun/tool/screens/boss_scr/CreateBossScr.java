@@ -102,6 +102,7 @@ public class CreateBossScr extends JInternalFrame {
     private BossCanvas canvas;
     private javax.swing.Timer animationTimer;
     private int currentFrame = 0;
+    private int animMode = 0; // 0: Stand, 1: Play All, 2: Pause
 
     private static final int[][][] CHAR_INFO = {
             { { 0, -13, 34 }, { 1, -8, 10 }, { 1, -9, 16 } }, // 0: Dung 1
@@ -175,9 +176,13 @@ public class CreateBossScr extends JInternalFrame {
         if (animationTimer != null)
             animationTimer.stop();
         animationTimer = new javax.swing.Timer(200, e -> {
-            currentFrame = (currentFrame + 1) % 2; // Only loop Stand 1 & 2
-            if (canvas != null)
-                canvas.repaint();
+            if (animMode == 0) {
+                currentFrame = (currentFrame + 1) % 2;
+                if (canvas != null) canvas.repaint();
+            } else if (animMode == 1) {
+                currentFrame = (currentFrame + 1) % CHAR_INFO.length;
+                if (canvas != null) canvas.repaint();
+            }
         });
         animationTimer.start();
     }
@@ -249,6 +254,61 @@ public class CreateBossScr extends JInternalFrame {
         middlePanel.setPreferredSize(new Dimension(900, 0));
         JPanel midTop = createBasicFormPanel();
         canvas = new BossCanvas();
+
+        JPanel pnlCanvas = new JPanel(new BorderLayout());
+        pnlCanvas.add(new JScrollPane(canvas), BorderLayout.CENTER);
+
+        JPanel pnlControls = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton btnPrev = new JButton("<");
+        JButton btnPlayPause = new JButton("Run All");
+        JButton btnStand = new JButton("Stand");
+        JButton btnNext = new JButton(">");
+        JSlider sliderSpeed = new JSlider(1, 100, 5);
+
+        btnPrev.addActionListener(e -> {
+            animMode = 2; // Pause
+            currentFrame--;
+            if (currentFrame < 0) currentFrame = CHAR_INFO.length - 1;
+            btnPlayPause.setText("Run All");
+            canvas.repaint();
+        });
+        btnNext.addActionListener(e -> {
+            animMode = 2; // Pause
+            currentFrame = (currentFrame + 1) % CHAR_INFO.length;
+            btnPlayPause.setText("Run All");
+            canvas.repaint();
+        });
+        btnPlayPause.addActionListener(e -> {
+            if (animMode == 1) {
+                animMode = 2; // Pause
+                btnPlayPause.setText("Run All");
+            } else {
+                animMode = 1; // Play all
+                btnPlayPause.setText("|| Pause");
+            }
+        });
+        btnStand.addActionListener(e -> {
+            animMode = 0; // Stand loop
+            currentFrame = 0;
+            btnPlayPause.setText("Run All");
+            canvas.repaint();
+        });
+        sliderSpeed.addChangeListener(e -> {
+            if (animationTimer != null) {
+                int delay = 1000 / sliderSpeed.getValue();
+                animationTimer.setDelay(delay);
+            }
+        });
+
+        pnlControls.add(btnPrev);
+        pnlControls.add(btnPlayPause);
+        pnlControls.add(btnStand);
+        pnlControls.add(btnNext);
+        pnlControls.add(new JLabel(" Tốc độ: "));
+        pnlControls.add(sliderSpeed);
+
+        pnlCanvas.add(pnlControls, BorderLayout.SOUTH);
+
         JPanel chatPanel = new JPanel();
         chatPanel.setLayout(new BoxLayout(chatPanel, BoxLayout.Y_AXIS));
         chatPanel.setBorder(BorderFactory.createTitledBorder("== Text Chat =="));
@@ -256,7 +316,7 @@ public class CreateBossScr extends JInternalFrame {
         chatPanel.add(createFormRow("Khi đánh:", txtTextM = new JTextField("[\"Haha!\"]")));
         chatPanel.add(createFormRow("Khi chết:", txtTextE = new JTextField("[\"Ta sẽ quay lại\"]")));
         middlePanel.add(midTop, BorderLayout.NORTH);
-        middlePanel.add(new JScrollPane(canvas), BorderLayout.CENTER);
+        middlePanel.add(pnlCanvas, BorderLayout.CENTER);
         middlePanel.add(chatPanel, BorderLayout.SOUTH);
 
         // COLUMN 3 (Advanced & Skills)
