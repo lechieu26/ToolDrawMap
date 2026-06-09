@@ -6,6 +6,7 @@ import com.girlkun.tool.screens.draw_map_scr.DrawMapScr;
 import com.girlkun.tool.screens.npc_scr.CreateNPCScr;
 import com.girlkun.tool.screens.server.ServerRunnerScr;
 import com.girlkun.tool.screens.mob_reward.MobRewardScr;
+import com.girlkun.tool.screens.part_scr.AddSkinScr;
 import com.girlkun.tool.screens.effect_scr.EffectEditor;
 import com.girlkun.tool.screens.mob_scr.MobEditor;
 import com.girlkun.tool.screens.sprite_scr.SpriteEditorScr;
@@ -62,6 +63,7 @@ public class Main extends JFrame {
     private JButton btnCreateBoss;
     private JButton btnEffectEditor;
     private JButton btnMobReward;
+    private JButton btnAddSkin;
     private JDesktopPane desktop;
     private JMenu jMenu1;
     private JMenuBar jMenuBar1;
@@ -236,6 +238,16 @@ public class Main extends JFrame {
         btnMobReward.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
         btnMobReward.addActionListener(this::btnMobRewardActionPerformed);
         jToolBar1.add(btnMobReward);
+
+        btnAddSkin = new JButton();
+        btnAddSkin.setBackground(new Color(0, 128, 0));
+        btnAddSkin.setForeground(Color.WHITE);
+        btnAddSkin.setText("Add new Skin");
+        btnAddSkin.setFocusable(false);
+        btnAddSkin.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnAddSkin.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
+        btnAddSkin.addActionListener(this::btnAddSkinActionPerformed);
+        jToolBar1.add(btnAddSkin);
 
         jPanel1.setPreferredSize(new Dimension(1200, 950));
         jPanel1.setLayout(new BorderLayout());
@@ -614,6 +626,10 @@ public class Main extends JFrame {
         openMobReward();
     }
 
+    private void btnAddSkinActionPerformed(ActionEvent evt) {
+        openAddSkin();
+    }
+
     private void openMobReward() {
         minimizeAllFrames();
         // Check existing
@@ -639,6 +655,36 @@ public class Main extends JFrame {
         mobRewardScr.setVisible(true);
         try {
             mobRewardScr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void openAddSkin() {
+        minimizeAllFrames();
+        // Check existing
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof AddSkinScr) {
+                try {
+                    if (frame.isIcon()) {
+                        frame.setIcon(false);
+                    }
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+
+        // New instance
+        AddSkinScr addSkinScr = new AddSkinScr();
+        desktop.add(addSkinScr);
+        addSkinScr.setLocation(0, 0);
+        addSkinScr.setVisible(true);
+        try {
+            addSkinScr.setSelected(true);
         } catch (java.beans.PropertyVetoException e) {
             e.printStackTrace();
         }
