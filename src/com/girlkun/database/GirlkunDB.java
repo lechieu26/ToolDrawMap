@@ -141,7 +141,6 @@ public class GirlkunDB {
                logger.info("Load thành công datasource: " + nameDS);
             } catch (Exception e) {
                logger.error("KHÔNG THỂ KẾT NỐI DATABASE " + nameDS + ": " + e.getMessage());
-               System.exit(0);
             }
          }
 
@@ -183,7 +182,7 @@ public class GirlkunDB {
 
    public static Connection getConnection(String dsName) throws Exception {
       for (GirlkunDatasource ds : datasource) {
-         if (ds.name.equals(dsName)) {
+         if (ds != null && ds.name.equals(dsName)) {
             return ds.getConnection();
          }
       }
