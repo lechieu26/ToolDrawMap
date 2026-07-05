@@ -66,7 +66,11 @@ public class Util {
    }
 
    public static BufferedImage getBgImageById(int id, int zoomSize) throws Exception {
-      return ImageIO.read(new File("data/data/item_bg_temp/x" + zoomSize + "/" + id + ".png"));
+      File file = new File("data/data/item_bg_temp/x" + zoomSize + "/" + id + ".png");
+      if (!file.exists()) {
+         file = new File("data/data/item_bg_temp/x2/" + id + ".png");
+      }
+      return ImageIO.read(file);
    }
 
    public static BufferedImage getImageMobById(int id, int f) throws Exception {
