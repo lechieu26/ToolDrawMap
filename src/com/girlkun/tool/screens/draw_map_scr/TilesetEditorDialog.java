@@ -414,12 +414,15 @@ public class TilesetEditorDialog extends JFrame {
     }
 
     private void loadExistingTileset() {
-        JFileChooser chooser = new JFileChooser(TILE_PATH);
-        chooser.setDialogTitle("Chọn File Tileset muốn sửa");
+        FileDialog dialog = new FileDialog(this, "Chọn File Tileset muốn sửa", FileDialog.LOAD);
+        dialog.setDirectory(TILE_PATH);
+        dialog.setFilenameFilter((dir, name) -> name.toLowerCase().endsWith(".png"));
+        dialog.setVisible(true);
 
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        String fileName = dialog.getFile();
+        if (fileName != null) {
             try {
-                File file = chooser.getSelectedFile();
+                File file = new File(dialog.getDirectory(), fileName);
                 String filename = file.getName();
                 String nameNoExt = filename.replace(".png", "");
 

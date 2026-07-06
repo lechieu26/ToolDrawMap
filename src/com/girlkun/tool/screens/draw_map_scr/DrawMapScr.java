@@ -31,6 +31,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.FileDialog;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -62,7 +63,6 @@ import javax.imageio.ImageIO;
 import javax.swing.GroupLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
-import javax.swing.JFileChooser;
 import javax.swing.JInternalFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -80,6 +80,11 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
 
 public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.Manager.DataChangeListener {
+   private static final String TILE_MAP_DATA_DIR = "data/data/map/tile_map_data";
+   private static final String ITEM_BG_MAP_DATA_DIR = "data/data/map/item_bg_map_data";
+   private static final String EFF_MAP_DIR = "data/data/map/eff_map";
+   private static final String TILE_DIR = "data/tile";
+
    private Thread tDrawMap;
    private Thread tDrawTile;
    private BufferedImage layerPaintScreen;
@@ -224,6 +229,17 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    private int vYGirlkun = 1;
    private long lastTimeGirlkun;
    private static Robot robot;
+
+   private File showNativeFileDialog(String title, String directory, int mode) {
+      FileDialog dialog = new FileDialog(Main.I, title, mode);
+      dialog.setDirectory(directory);
+      dialog.setVisible(true);
+      String fileName = dialog.getFile();
+      if (fileName == null) {
+         return null;
+      }
+      return new File(dialog.getDirectory(), fileName);
+   }
 
    public DrawMapScr() {
       this.initComponents();
@@ -1186,10 +1202,9 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void button1ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/data/map/tile_map_data");
-         if (fileChooser.showOpenDialog(Main.I) == 0) {
+         File file = this.showNativeFileDialog("Chọn tile map data", TILE_MAP_DATA_DIR, FileDialog.LOAD);
+         if (file != null) {
             try {
-               File file = fileChooser.getSelectedFile();
                this.readMapdata(file);
                NotifyUtil.showMessageDialog(Main.I, "Đọc map thành công!");
             } catch (Exception var3) {
@@ -1219,16 +1234,15 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void button2ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser(
-               "C:\\Users\\admin\\Desktop\\cbro\\data\\girlkun\\map\\tile_map_data");
-         if (fileChooser.showSaveDialog(Main.I) == 0) {
+         File file = this.showNativeFileDialog("Lưu tile map data", TILE_MAP_DATA_DIR, FileDialog.SAVE);
+         if (file != null) {
             try {
                Layer layer = this.layers.get(1);
                if (layer == null) {
                   return;
                }
 
-               DataOutputStream dos = new DataOutputStream(new FileOutputStream(fileChooser.getSelectedFile()));
+               DataOutputStream dos = new DataOutputStream(new FileOutputStream(file));
                int[][] tileMap = ((TileMapLayer) layer).getTileMap();
                dos.writeByte(tileMap[0].length);
                dos.writeByte(tileMap.length);
@@ -1276,10 +1290,10 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void button6ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/data/map/item_bg_map_data");
-         if (fileChooser.showOpenDialog(Main.I) == 0) {
+         File file = this.showNativeFileDialog("Chọn background item data", ITEM_BG_MAP_DATA_DIR, FileDialog.LOAD);
+         if (file != null) {
             try {
-               this.readDataBgItem(fileChooser.getSelectedFile());
+               this.readDataBgItem(file);
                NotifyUtil.showMessageDialog(Main.I, "Đọc background item thành công!");
             } catch (Exception var3) {
             }
@@ -1339,15 +1353,14 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void button8ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser(
-               "C:\\Users\\admin\\Desktop\\cbro\\data\\girlkun\\map\\item_bg_map_data");
-         if (fileChooser.showSaveDialog(Main.I) == 0) {
+         File file = this.showNativeFileDialog("Lưu background item data", ITEM_BG_MAP_DATA_DIR, FileDialog.SAVE);
+         if (file != null) {
             try {
                if (this.bgItemL1 == null || this.bgItemL2 == null || this.bgItemL3 == null || this.bgItemL4 == null) {
                   return;
                }
 
-               DataOutputStream dos = new DataOutputStream(new FileOutputStream(fileChooser.getSelectedFile()));
+               DataOutputStream dos = new DataOutputStream(new FileOutputStream(file));
                int n = this.bgItemL1.size() + this.bgItemL2.size() + this.bgItemL3.size() + this.bgItemL4.size();
                dos.writeShort(n);
 
@@ -1802,11 +1815,10 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    private void button22ActionPerformed(ActionEvent evt) {
       new Thread(
             () -> {
-               JFileChooser fileChooser = new JFileChooser(
-                     "C:\\Users\\admin\\Desktop\\cbro\\data\\girlkun\\map\\eff_map");
-               if (fileChooser.showSaveDialog(Main.I) == 0) {
+               File file = this.showNativeFileDialog("Lưu effect map", EFF_MAP_DIR, FileDialog.SAVE);
+               if (file != null) {
                   try {
-                     DataOutputStream dos = new DataOutputStream(new FileOutputStream(fileChooser.getSelectedFile()));
+                     DataOutputStream dos = new DataOutputStream(new FileOutputStream(file));
                      dos.writeShort(this.effectMaps.size() + this.subEffectMaps.size());
 
                      for (EffectMap eff : this.effectMaps) {
@@ -2000,10 +2012,10 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void button24ActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/data/map/eff_map");
-         if (fileChooser.showOpenDialog(Main.I) == 0) {
+         File file = this.showNativeFileDialog("Chọn effect map", EFF_MAP_DIR, FileDialog.LOAD);
+         if (file != null) {
             try {
-               DataInputStream dis = new DataInputStream(new FileInputStream(fileChooser.getSelectedFile()));
+               DataInputStream dis = new DataInputStream(new FileInputStream(file));
                this.effectMaps.clear();
                this.subEffectMaps.clear();
                int n = dis.readShort();
@@ -2149,9 +2161,8 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void btnTileActionPerformed(ActionEvent evt) {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/tile");
-         if (fileChooser.showOpenDialog(this) == 0) {
-            File fileChose = fileChooser.getSelectedFile();
+         File fileChose = this.showNativeFileDialog("Chọn tileset", TILE_DIR, FileDialog.LOAD);
+         if (fileChose != null) {
             this.readTileSet(fileChose);
          }
       }).start();

@@ -41,6 +41,7 @@ public class ImageScalerDialog extends JInternalFrame {
     private JTabbedPane tabbedPane;
     private RenameSpritesPanel renameSpritesPanel;
     private SpriteCutterPanel spriteCutterPanel;
+    private ExtensionConverterPanel extensionConverterPanel;
 
     // Data
     private List<File> selectedImages = new ArrayList<>();
@@ -72,6 +73,10 @@ public class ImageScalerDialog extends JInternalFrame {
         // Tab 3: Sprite Cutter
         spriteCutterPanel = new SpriteCutterPanel();
         tabbedPane.addTab("Sprite Cutter", spriteCutterPanel);
+        
+        // Tab 4: Format Converter
+        extensionConverterPanel = new ExtensionConverterPanel();
+        tabbedPane.addTab("Format Converter", extensionConverterPanel);
         
         tabbedPane.setBackground(BG_COLOR);
         tabbedPane.setForeground(TEXT_COLOR);

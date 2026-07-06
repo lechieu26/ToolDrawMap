@@ -6,6 +6,7 @@ import com.girlkun.tool.main.Manager;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.FileDialog;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -21,7 +22,6 @@ import java.io.IOException;
 import java.util.List;
 import javax.imageio.ImageIO;
 import javax.swing.GroupLayout;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -176,9 +176,12 @@ public class TileMap extends JFrame {
 
    private void openChoseTileSet() {
       new Thread(() -> {
-         JFileChooser fileChooser = new JFileChooser("data/tile");
-         if (fileChooser.showOpenDialog(this) == 0) {
-            File fileChose = fileChooser.getSelectedFile();
+         FileDialog dialog = new FileDialog(this, "Chọn tileset", FileDialog.LOAD);
+         dialog.setDirectory("data/tile");
+         dialog.setVisible(true);
+         String fileName = dialog.getFile();
+         if (fileName != null) {
+            File fileChose = new File(dialog.getDirectory(), fileName);
             this.readTileSet(fileChose);
          }
       }).start();
