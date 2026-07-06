@@ -203,11 +203,21 @@ public class ShopManagerDAO {
         List<TabShop> list = new ArrayList<>();
         try {
             Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM tab_shop WHERE shop_id = ?")) {
-                stmt.setInt(1, shopId);
-                ResultSet rs = stmt.executeQuery();
-                while (rs.next()) {
-                    list.add(new TabShop(rs.getInt("id"), rs.getInt("shop_id"), rs.getString("tab_name")));
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM tab_shop WHERE shop_id = ?")) {
+                    stmt.setInt(1, shopId);
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        list.add(new TabShop(rs.getInt("id"), rs.getInt("shop_id"), rs.getString("NAME")));
+                    }
+                }
+            } else {
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM tab_shop WHERE shop_id = ?")) {
+                    stmt.setInt(1, shopId);
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        list.add(new TabShop(rs.getInt("id"), rs.getInt("shop_id"), rs.getString("tab_name")));
+                    }
                 }
             }
         } catch (Exception e) {
@@ -219,13 +229,22 @@ public class ShopManagerDAO {
     public void addTab(TabShop tab, int tabIndex) {
         try {
             Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO tab_shop (shop_id, tab_name, tab_index, items) VALUES (?, ?, ?, ?)")) {
-                stmt.setInt(1, tab.shopId);
-                stmt.setString(2, tab.tabName);
-                stmt.setInt(3, tabIndex);
-                stmt.setString(4, "[]");
-                stmt.executeUpdate();
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO tab_shop (shop_id, NAME) VALUES (?, ?)")) {
+                    stmt.setInt(1, tab.shopId);
+                    stmt.setString(2, tab.tabName);
+                    stmt.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO tab_shop (shop_id, tab_name, tab_index, items) VALUES (?, ?, ?, ?)")) {
+                    stmt.setInt(1, tab.shopId);
+                    stmt.setString(2, tab.tabName);
+                    stmt.setInt(3, tabIndex);
+                    stmt.setString(4, "[]");
+                    stmt.executeUpdate();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -235,10 +254,18 @@ public class ShopManagerDAO {
     public void updateTab(TabShop tab) {
         try {
             Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("UPDATE tab_shop SET tab_name = ? WHERE id = ?")) {
-                stmt.setString(1, tab.tabName);
-                stmt.setInt(2, tab.id);
-                stmt.executeUpdate();
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement stmt = conn.prepareStatement("UPDATE tab_shop SET NAME = ? WHERE id = ?")) {
+                    stmt.setString(1, tab.tabName);
+                    stmt.setInt(2, tab.id);
+                    stmt.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement stmt = conn.prepareStatement("UPDATE tab_shop SET tab_name = ? WHERE id = ?")) {
+                    stmt.setString(1, tab.tabName);
+                    stmt.setInt(2, tab.id);
+                    stmt.executeUpdate();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -273,12 +300,23 @@ public class ShopManagerDAO {
                 return tabs;
 
             // 2. Get tabs
-            try (PreparedStatement tStmt = conn
-                    .prepareStatement("SELECT id, tab_name FROM tab_shop WHERE shop_id = ?")) {
-                tStmt.setInt(1, shopId);
-                ResultSet rs = tStmt.executeQuery();
-                while (rs.next()) {
-                    tabs.add(new TabShop(rs.getInt("id"), shopId, rs.getString("tab_name")));
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement tStmt = conn
+                        .prepareStatement("SELECT id, NAME FROM tab_shop WHERE shop_id = ?")) {
+                    tStmt.setInt(1, shopId);
+                    ResultSet rs = tStmt.executeQuery();
+                    while (rs.next()) {
+                        tabs.add(new TabShop(rs.getInt("id"), shopId, rs.getString("NAME")));
+                    }
+                }
+            } else {
+                try (PreparedStatement tStmt = conn
+                        .prepareStatement("SELECT id, tab_name FROM tab_shop WHERE shop_id = ?")) {
+                    tStmt.setInt(1, shopId);
+                    ResultSet rs = tStmt.executeQuery();
+                    while (rs.next()) {
+                        tabs.add(new TabShop(rs.getInt("id"), shopId, rs.getString("tab_name")));
+                    }
                 }
             }
         } catch (Exception e) {
@@ -339,17 +377,19 @@ public class ShopManagerDAO {
 
         try {
             Connection conn = getConnection();
-            // 1. Get JSON
+            // 1. Get JSON (if TOMAHAWK)
             String jsonStr = "";
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT items FROM tab_shop WHERE id = ?")) {
-                stmt.setInt(1, tabId);
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) {
-                    jsonStr = rs.getString("items");
+            if (config.dbType == DbConfig.DB_TOMAHAWK) {
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT items FROM tab_shop WHERE id = ?")) {
+                    stmt.setInt(1, tabId);
+                    ResultSet rs = stmt.executeQuery();
+                    if (rs.next()) {
+                        jsonStr = rs.getString("items");
+                    }
                 }
+                if (jsonStr == null || jsonStr.isEmpty())
+                    return result;
             }
-            if (jsonStr == null || jsonStr.isEmpty())
-                return result;
 
             // 2. Load ItemNames and OptionNames
             Map<Integer, String> itemNames = new HashMap<>();
@@ -375,58 +415,108 @@ public class ShopManagerDAO {
                 // Ignore if table doesn't exist just in case
             }
 
-            // 3. Parse JSON
-            JSONParser parser = new JSONParser();
-            Object obj = parser.parse(jsonStr);
-            if (obj instanceof JSONArray) {
-                JSONArray arr = (JSONArray) obj;
-                for (Object itemObj : arr) {
-                    JSONObject itemJson = (JSONObject) itemObj;
+            // 3. Parse JSON or DB
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM item_shop WHERE tab_id = ? ORDER BY sort_order ASC, id ASC")) {
+                    stmt.setInt(1, tabId);
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        int itemShopId = rs.getInt("id");
+                        ItemData data = new ItemData();
+                        data.temp_id = rs.getInt("temp_id");
+                        data.is_new = rs.getBoolean("is_new");
+                        data.is_sell = rs.getBoolean("is_sell");
+                        data.type_sell = rs.getInt("type_sell");
+                        data.cost = rs.getInt("cost");
+                        data.item_spec = rs.getInt("icon_spec");
 
-                    ItemData data = new ItemData();
-                    data.cost = getInt(itemJson, "cost");
-                    data.type_sell = getInt(itemJson, "type_sell");
-                    data.is_new = getBool(itemJson, "is_new");
-                    data.is_sell = getBool(itemJson, "is_sell");
-                    data.temp_id = getInt(itemJson, "temp_id");
-                    data.item_spec = getInt(itemJson, "item_spec");
+                        DisplayItem display = new DisplayItem();
+                        display.id = data.temp_id;
+                        display.name = itemNames.getOrDefault(data.temp_id, "Item " + data.temp_id);
+                        display.cost = data.cost;
+                        display.sellType = data.type_sell;
 
-                    DisplayItem display = new DisplayItem();
-                    display.id = data.temp_id;
-                    display.name = itemNames.getOrDefault(data.temp_id, "Item " + data.temp_id);
-                    display.cost = data.cost;
-                    display.sellType = data.type_sell;
+                        try (PreparedStatement optStmt = conn.prepareStatement("SELECT option_id, param FROM item_shop_option WHERE item_shop_id = ?")) {
+                            optStmt.setInt(1, itemShopId);
+                            ResultSet optRs = optStmt.executeQuery();
+                            while (optRs.next()) {
+                                ItemOption opt = new ItemOption();
+                                opt.id = optRs.getInt("option_id");
+                                opt.param = optRs.getInt("param");
+                                data.options.add(opt);
 
-                    JSONArray optionsArr = (JSONArray) itemJson.get("options");
-                    if (optionsArr != null) {
-                        for (Object optObj : optionsArr) {
-                            JSONObject optJson = (JSONObject) optObj;
-                            ItemOption opt = new ItemOption();
-                            opt.id = getInt(optJson, "id");
-                            opt.param = getInt(optJson, "param");
-                            data.options.add(opt);
-
-                            display.options.add(new DisplayItem.ItemOptionDisplay(
-                                    opt.id,
-                                    optionNames.getOrDefault(opt.id, "Option " + opt.id),
-                                    opt.param));
+                                display.options.add(new DisplayItem.ItemOptionDisplay(
+                                        opt.id,
+                                        optionNames.getOrDefault(opt.id, "Option " + opt.id),
+                                        opt.param));
+                            }
                         }
-                    }
 
-                    // Populate sellTypeName
-                    if (sellTypeNames.containsKey(data.type_sell)) {
-                        display.sellTypeName = sellTypeNames.get(data.type_sell);
-                    } else if (data.type_sell == 0) {
-                        display.sellTypeName = "Vàng";
-                    } else {
-                        // Debug log
-                        System.out.println(
-                                "DEBUG: Missing sellType: " + data.type_sell + " in map: " + sellTypeNames.keySet());
-                        display.sellTypeName = String.valueOf(data.type_sell);
-                    }
+                        if (sellTypeNames.containsKey(data.type_sell)) {
+                            display.sellTypeName = sellTypeNames.get(data.type_sell);
+                        } else if (data.type_sell == 0) {
+                            display.sellTypeName = "Vàng";
+                        } else {
+                            display.sellTypeName = String.valueOf(data.type_sell);
+                        }
 
-                    result.rawItems.add(data);
-                    result.displayItems.add(display);
+                        result.rawItems.add(data);
+                        result.displayItems.add(display);
+                    }
+                }
+            } else {
+                JSONParser parser = new JSONParser();
+                Object obj = parser.parse(jsonStr);
+                if (obj instanceof JSONArray) {
+                    JSONArray arr = (JSONArray) obj;
+                    for (Object itemObj : arr) {
+                        JSONObject itemJson = (JSONObject) itemObj;
+
+                        ItemData data = new ItemData();
+                        data.cost = getInt(itemJson, "cost");
+                        data.type_sell = getInt(itemJson, "type_sell");
+                        data.is_new = getBool(itemJson, "is_new");
+                        data.is_sell = getBool(itemJson, "is_sell");
+                        data.temp_id = getInt(itemJson, "temp_id");
+                        data.item_spec = getInt(itemJson, "item_spec");
+
+                        DisplayItem display = new DisplayItem();
+                        display.id = data.temp_id;
+                        display.name = itemNames.getOrDefault(data.temp_id, "Item " + data.temp_id);
+                        display.cost = data.cost;
+                        display.sellType = data.type_sell;
+
+                        JSONArray optionsArr = (JSONArray) itemJson.get("options");
+                        if (optionsArr != null) {
+                            for (Object optObj : optionsArr) {
+                                JSONObject optJson = (JSONObject) optObj;
+                                ItemOption opt = new ItemOption();
+                                opt.id = getInt(optJson, "id");
+                                opt.param = getInt(optJson, "param");
+                                data.options.add(opt);
+
+                                display.options.add(new DisplayItem.ItemOptionDisplay(
+                                        opt.id,
+                                        optionNames.getOrDefault(opt.id, "Option " + opt.id),
+                                        opt.param));
+                            }
+                        }
+
+                        // Populate sellTypeName
+                        if (sellTypeNames.containsKey(data.type_sell)) {
+                            display.sellTypeName = sellTypeNames.get(data.type_sell);
+                        } else if (data.type_sell == 0) {
+                            display.sellTypeName = "Vàng";
+                        } else {
+                            // Debug log
+                            System.out.println(
+                                    "DEBUG: Missing sellType: " + data.type_sell + " in map: " + sellTypeNames.keySet());
+                            display.sellTypeName = String.valueOf(data.type_sell);
+                        }
+
+                        result.rawItems.add(data);
+                        result.displayItems.add(display);
+                    }
                 }
             }
 
@@ -438,6 +528,13 @@ public class ShopManagerDAO {
 
     public List<TypeSell> getTypeSells() {
         List<TypeSell> list = new ArrayList<>();
+        if (config.dbType == DbConfig.DB_NRO_ARN) {
+            list.add(new TypeSell(0, "Vàng"));
+            list.add(new TypeSell(1, "Ngọc"));
+            list.add(new TypeSell(2, "Hồng ngọc"));
+            return list;
+        }
+
         boolean hasGold = false;
         try {
             Connection conn = getConnection();
@@ -465,38 +562,109 @@ public class ShopManagerDAO {
     }
 
     public void updateItemsJson(int tabId, List<ItemData> items) {
-        JSONArray jsonArr = new JSONArray();
-        for (ItemData item : items) {
-            JSONObject itemObj = new JSONObject();
-            itemObj.put("cost", item.cost);
-            itemObj.put("type_sell", item.type_sell);
-            itemObj.put("is_new", item.is_new);
-            itemObj.put("is_sell", item.is_sell);
-            itemObj.put("temp_id", item.temp_id);
-            itemObj.put("item_spec", item.item_spec);
-
-            JSONArray optArr = new JSONArray();
-            if (item.options != null) {
-                for (ItemOption opt : item.options) {
-                    JSONObject optObj = new JSONObject();
-                    optObj.put("id", opt.id);
-                    optObj.put("param", opt.param);
-                    optArr.add(optObj);
+        if (config.dbType == DbConfig.DB_NRO_ARN) {
+            try {
+                Connection conn = getConnection();
+                // 1. Get all item_shop ids for this tab_id
+                List<Integer> itemShopIds = new ArrayList<>();
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT id FROM item_shop WHERE tab_id = ?")) {
+                    stmt.setInt(1, tabId);
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        itemShopIds.add(rs.getInt("id"));
+                    }
                 }
-            }
-            itemObj.put("options", optArr);
-            jsonArr.add(itemObj);
-        }
+                
+                // 2. Delete from item_shop_option
+                if (!itemShopIds.isEmpty()) {
+                    StringBuilder placeholders = new StringBuilder("?");
+                    for (int i = 1; i < itemShopIds.size(); i++) {
+                        placeholders.append(",?");
+                    }
+                    try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM item_shop_option WHERE item_shop_id IN (" + placeholders + ")")) {
+                        for (int i = 0; i < itemShopIds.size(); i++) {
+                            stmt.setInt(i + 1, itemShopIds.get(i));
+                        }
+                        stmt.executeUpdate();
+                    }
+                }
 
-        try {
-            Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("UPDATE tab_shop SET items = ? WHERE id = ?")) {
-                stmt.setString(1, jsonArr.toJSONString());
-                stmt.setInt(2, tabId);
-                stmt.executeUpdate();
+                // 3. Delete from item_shop
+                try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM item_shop WHERE tab_id = ?")) {
+                    stmt.setInt(1, tabId);
+                    stmt.executeUpdate();
+                }
+
+                // 4. Insert items
+                int sortOrder = 0;
+                for (ItemData item : items) {
+                    try (PreparedStatement stmt = conn.prepareStatement(
+                            "INSERT INTO item_shop (tab_id, temp_id, is_new, is_sell, type_sell, cost, icon_spec, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            Statement.RETURN_GENERATED_KEYS)) {
+                        stmt.setInt(1, tabId);
+                        stmt.setInt(2, item.temp_id);
+                        stmt.setBoolean(3, item.is_new);
+                        stmt.setBoolean(4, item.is_sell);
+                        stmt.setInt(5, item.type_sell);
+                        stmt.setInt(6, item.cost);
+                        stmt.setInt(7, item.item_spec);
+                        stmt.setInt(8, sortOrder++);
+                        stmt.executeUpdate();
+
+                        ResultSet rs = stmt.getGeneratedKeys();
+                        if (rs.next()) {
+                            int newId = rs.getInt(1);
+                            if (item.options != null && !item.options.isEmpty()) {
+                                try (PreparedStatement optStmt = conn.prepareStatement("INSERT INTO item_shop_option (item_shop_id, option_id, param) VALUES (?, ?, ?)")) {
+                                    for (ItemOption opt : item.options) {
+                                        optStmt.setInt(1, newId);
+                                        optStmt.setInt(2, opt.id);
+                                        optStmt.setInt(3, opt.param);
+                                        optStmt.addBatch();
+                                    }
+                                    optStmt.executeBatch();
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } else {
+            JSONArray jsonArr = new JSONArray();
+            for (ItemData item : items) {
+                JSONObject itemObj = new JSONObject();
+                itemObj.put("cost", item.cost);
+                itemObj.put("type_sell", item.type_sell);
+                itemObj.put("is_new", item.is_new);
+                itemObj.put("is_sell", item.is_sell);
+                itemObj.put("temp_id", item.temp_id);
+                itemObj.put("item_spec", item.item_spec);
+
+                JSONArray optArr = new JSONArray();
+                if (item.options != null) {
+                    for (ItemOption opt : item.options) {
+                        JSONObject optObj = new JSONObject();
+                        optObj.put("id", opt.id);
+                        optObj.put("param", opt.param);
+                        optArr.add(optObj);
+                    }
+                }
+                itemObj.put("options", optArr);
+                jsonArr.add(itemObj);
+            }
+
+            try {
+                Connection conn = getConnection();
+                try (PreparedStatement stmt = conn.prepareStatement("UPDATE tab_shop SET items = ? WHERE id = ?")) {
+                    stmt.setString(1, jsonArr.toJSONString());
+                    stmt.setInt(2, tabId);
+                    stmt.executeUpdate();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -535,7 +703,11 @@ public class ShopManagerDAO {
                     gc.detail = rs.getString("detail");
                     gc.dateCreate = rs.getTimestamp("datecreate");
                     gc.expired = rs.getTimestamp("expired");
-                    gc.type = rs.getInt("type");
+                    if (config.dbType != DbConfig.DB_NRO_ARN) {
+                        gc.type = rs.getInt("type");
+                    } else {
+                        gc.type = 0;
+                    }
                     list.add(gc);
                 }
             }
@@ -548,15 +720,27 @@ public class ShopManagerDAO {
     public void addGiftcode(Giftcode gc) {
         try {
             Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO giftcode (code, count_left, detail, datecreate, expired, type) VALUES (?, ?, ?, ?, ?, ?)")) {
-                stmt.setString(1, gc.code);
-                stmt.setInt(2, gc.countLeft);
-                stmt.setString(3, gc.detail);
-                stmt.setTimestamp(4, gc.dateCreate);
-                stmt.setTimestamp(5, gc.expired);
-                stmt.setInt(6, gc.type);
-                stmt.executeUpdate();
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO giftcode (code, count_left, detail, datecreate, expired) VALUES (?, ?, ?, ?, ?)")) {
+                    stmt.setString(1, gc.code);
+                    stmt.setInt(2, gc.countLeft);
+                    stmt.setString(3, gc.detail);
+                    stmt.setTimestamp(4, gc.dateCreate);
+                    stmt.setTimestamp(5, gc.expired);
+                    stmt.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO giftcode (code, count_left, detail, datecreate, expired, type) VALUES (?, ?, ?, ?, ?, ?)")) {
+                    stmt.setString(1, gc.code);
+                    stmt.setInt(2, gc.countLeft);
+                    stmt.setString(3, gc.detail);
+                    stmt.setTimestamp(4, gc.dateCreate);
+                    stmt.setTimestamp(5, gc.expired);
+                    stmt.setInt(6, gc.type);
+                    stmt.executeUpdate();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -566,15 +750,27 @@ public class ShopManagerDAO {
     public void updateGiftcode(Giftcode gc) {
         try {
             Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "UPDATE giftcode SET code=?, count_left=?, detail=?, expired=?, type=? WHERE id=?")) {
-                stmt.setString(1, gc.code);
-                stmt.setInt(2, gc.countLeft);
-                stmt.setString(3, gc.detail);
-                stmt.setTimestamp(4, gc.expired);
-                stmt.setInt(5, gc.type);
-                stmt.setInt(6, gc.id);
-                stmt.executeUpdate();
+            if (config.dbType == DbConfig.DB_NRO_ARN) {
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "UPDATE giftcode SET code=?, count_left=?, detail=?, expired=? WHERE id=?")) {
+                    stmt.setString(1, gc.code);
+                    stmt.setInt(2, gc.countLeft);
+                    stmt.setString(3, gc.detail);
+                    stmt.setTimestamp(4, gc.expired);
+                    stmt.setInt(5, gc.id);
+                    stmt.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "UPDATE giftcode SET code=?, count_left=?, detail=?, expired=?, type=? WHERE id=?")) {
+                    stmt.setString(1, gc.code);
+                    stmt.setInt(2, gc.countLeft);
+                    stmt.setString(3, gc.detail);
+                    stmt.setTimestamp(4, gc.expired);
+                    stmt.setInt(5, gc.type);
+                    stmt.setInt(6, gc.id);
+                    stmt.executeUpdate();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

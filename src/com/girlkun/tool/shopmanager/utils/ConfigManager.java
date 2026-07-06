@@ -19,7 +19,7 @@ public class ConfigManager {
     public static DbConfig load() {
         File file = new File(CONFIG_FILE);
         if (!file.exists()) {
-            return new DbConfig("localhost", 3306, "root", "", "nrosamurai");
+            return new DbConfig("localhost", 3306, "root", "", "nrosamurai", DbConfig.DB_TOMAHAWK);
         }
 
         try (FileInputStream fis = new FileInputStream(file);
@@ -33,10 +33,11 @@ public class ConfigManager {
             config.user = props.getProperty("database.user", "root");
             config.password = props.getProperty("database.pass", "");
             config.database = props.getProperty("database.name", "nrosamurai");
+            config.dbType = Integer.parseInt(props.getProperty("database.type", String.valueOf(DbConfig.DB_TOMAHAWK)));
             return config;
         } catch (Exception e) {
             e.printStackTrace();
-            return new DbConfig("localhost", 3306, "root", "", "nrosamurai");
+            return new DbConfig("localhost", 3306, "root", "", "nrosamurai", DbConfig.DB_TOMAHAWK);
         }
     }
 
@@ -52,6 +53,7 @@ public class ConfigManager {
             java.util.List<String> lines = Files.readAllLines(Paths.get(CONFIG_FILE));
             StringBuilder newContent = new StringBuilder();
 
+            boolean hasType = false;
             for (String line : lines) {
                 String trimmed = line.trim();
                 if (trimmed.startsWith("database.host=")) {
@@ -64,6 +66,9 @@ public class ConfigManager {
                     newContent.append("database.user=").append(config.user).append("\n");
                 } else if (trimmed.startsWith("database.pass=")) {
                     newContent.append("database.pass=").append(config.password).append("\n");
+                } else if (trimmed.startsWith("database.type=")) {
+                    newContent.append("database.type=").append(config.dbType).append("\n");
+                    hasType = true;
                 } else if (trimmed.startsWith("database.url=")) {
                     String url = String.format(
                             "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=utf8&allowPublicKeyRetrieval=true",
@@ -72,6 +77,9 @@ public class ConfigManager {
                 } else {
                     newContent.append(line).append("\n");
                 }
+            }
+            if (!hasType) {
+                newContent.append("database.type=").append(config.dbType).append("\n");
             }
 
             try (FileOutputStream fos = new FileOutputStream(file);

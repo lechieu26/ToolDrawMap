@@ -23,6 +23,7 @@ public class DbConfigScr extends JInternalFrame {
     private static final String ICON_FAILED = "data/failed.png";
 
     private JTextField txtDbHost, txtDbPort, txtDbUser, txtDbPass, txtDbName;
+    private JComboBox<String> cbDbType;
     private JTextArea txtDbStatus; // Dùng JTextArea để hiển thị toàn bộ lỗi
     private JLabel lblStatusIcon; // Icon hiển thị trạng thái
     private JButton btnSave, btnTest;
@@ -59,16 +60,19 @@ public class DbConfigScr extends JInternalFrame {
         txtDbUser = new JTextField(20);
         txtDbPass = new JPasswordField(20);
         txtDbName = new JTextField(20);
+        
+        cbDbType = new JComboBox<>(new String[]{"Tomahawk (Cũ)", "NRO ARN (Mới)"});
 
         addFormRow(formPanel, gbc, 0, "Host:", txtDbHost);
         addFormRow(formPanel, gbc, 1, "Port:", txtDbPort);
         addFormRow(formPanel, gbc, 2, "User:", txtDbUser);
         addFormRow(formPanel, gbc, 3, "Password:", txtDbPass);
         addFormRow(formPanel, gbc, 4, "Database:", txtDbName);
+        addFormRow(formPanel, gbc, 5, "DB Type:", cbDbType);
 
         // Status area - icon và text cùng 1 dòng
         gbc.gridx = 0;
-        gbc.gridy = 5;
+        gbc.gridy = 6;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
@@ -175,6 +179,7 @@ public class DbConfigScr extends JInternalFrame {
         txtDbUser.setText(cfg.user);
         txtDbPass.setText(cfg.password);
         txtDbName.setText(cfg.database);
+        cbDbType.setSelectedIndex(cfg.dbType == DbConfig.DB_NRO_ARN ? 1 : 0);
 
         // Check connection status on load với timeout
         testConnectionQuick();
@@ -259,12 +264,14 @@ public class DbConfigScr extends JInternalFrame {
     private void saveConfig() {
         try {
             int port = Integer.parseInt(txtDbPort.getText().trim());
+            int dbType = cbDbType.getSelectedIndex() == 1 ? DbConfig.DB_NRO_ARN : DbConfig.DB_TOMAHAWK;
             DbConfig cfg = new DbConfig(
                     txtDbHost.getText().trim(),
                     port,
                     txtDbUser.getText().trim(),
                     txtDbPass.getText(),
-                    txtDbName.getText().trim());
+                    txtDbName.getText().trim(),
+                    dbType);
 
             ConfigManager.save(cfg);
             dao.reloadConfig();
