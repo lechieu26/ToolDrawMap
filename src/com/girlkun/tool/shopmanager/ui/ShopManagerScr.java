@@ -847,21 +847,26 @@ public class ShopManagerScr extends JInternalFrame {
         Shop s = (Shop) cbItemShopList.getSelectedItem();
         TypeSell ts = (TypeSell) cbItemSellType.getSelectedItem();
 
-        // type_shop = 0 (Normal) -> ẩn Find/Select item đơn giá
-        // type_shop = 3 (Special) -> hiện và enable Find/Select item đơn giá
-        // type_sell = 2 -> enable Find/Select item đơn giá
-        if (s != null && s.typeShop == 0) {
-            // type_shop = 0: ẩn hoàn toàn
-            setIconSpecVisible(false);
-        } else if (s != null && s.typeShop == 3) {
-            // type_shop = 3: hiện và enable
-            setIconSpecVisible(true);
-            setIconSpecEnabled(true);
+        if (dao.getDbType() == DbConfig.DB_NRO_ARN) {
+            // NRO_ARN: Chỉ hiện textbox và combobox tìm item đơn giá khi type_sell == 6 (SPECIFIC_ITEM)
+            boolean isSpecificItem = (ts != null && ts.id == 6);
+            setIconSpecVisible(isSpecificItem);
+            setIconSpecEnabled(isSpecificItem);
         } else {
-            // Các trường hợp khác: hiện và dựa vào type_sell = 2
-            setIconSpecVisible(true);
-            boolean enable = (ts != null && ts.id == 2);
-            setIconSpecEnabled(enable);
+            // Tomahawk logic cũ
+            if (s != null && s.typeShop == 0) {
+                // type_shop = 0: ẩn hoàn toàn
+                setIconSpecVisible(false);
+            } else if (s != null && s.typeShop == 3) {
+                // type_shop = 3: hiện và enable
+                setIconSpecVisible(true);
+                setIconSpecEnabled(true);
+            } else {
+                // Các trường hợp khác: hiện và dựa vào type_sell = 2
+                setIconSpecVisible(true);
+                boolean enable = (ts != null && ts.id == 2);
+                setIconSpecEnabled(enable);
+            }
         }
     }
 
@@ -886,9 +891,16 @@ public class ShopManagerScr extends JInternalFrame {
         // type_shop = 3 (Special) -> dim Type Sell, hiện và enable Find/Select item đơn
         // giá
         if (s.typeShop == 3) {
-            cbItemSellType.setEnabled(false);
-            setIconSpecVisible(true);
-            setIconSpecEnabled(true);
+            if (dao.getDbType() == DbConfig.DB_NRO_ARN) {
+                // NRO_ARN: cho phép chọn type_sell tự do
+                cbItemSellType.setEnabled(true);
+                updateIconSpecInputState();
+            } else {
+                // Tomahoc: disable type_sell, hiện icon_spec
+                cbItemSellType.setEnabled(false);
+                setIconSpecVisible(true);
+                setIconSpecEnabled(true);
+            }
         } else {
             cbItemSellType.setEnabled(true);
             // type_shop = 0 (Normal) -> ẩn Find/Select item đơn giá
@@ -993,11 +1005,10 @@ public class ShopManagerScr extends JInternalFrame {
             } catch (Exception e) {
             }
 
-            // Khi type_shop = 3, type_sell mặc định = 0
             Shop shop = (Shop) cbItemShopList.getSelectedItem();
             TypeSell selectedTs = (TypeSell) cbItemSellType.getSelectedItem();
             int typeSell;
-            if (shop != null && shop.typeShop == 3) {
+            if (shop != null && shop.typeShop == 3 && dao.getDbType() != DbConfig.DB_NRO_ARN) {
                 typeSell = 0;
             } else {
                 typeSell = selectedTs != null ? selectedTs.id : 0;

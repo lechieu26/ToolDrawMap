@@ -1215,13 +1215,13 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void readMapdata(File file) throws Exception {
       DataInputStream dis = new DataInputStream(new FileInputStream(file));
-      int w = dis.readByte();
-      int h = dis.readByte();
+      int w = dis.readUnsignedByte();
+      int h = dis.readUnsignedByte();
       int[][] tileMap = new int[h][w];
 
       for (int i = 0; i < h; i++) {
          for (int j = 0; j < w; j++) {
-            tileMap[i][j] = dis.readByte() - 1;
+            tileMap[i][j] = dis.readUnsignedByte() - 1;
          }
       }
 
@@ -2666,7 +2666,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
       this.camera.camY = 17;
       this.mapWidth = w * 24;
       this.mapHeight = h * 24;
-      this.layerPaintScreen = new BufferedImage(w * 24, h * 24, 2);
+      this.layerPaintScreen = new BufferedImage(Math.max(1, w * 24), Math.max(1, h * 24), 2);
       this.mapName = null;
       this.mapId = -1;
       this.layers.clear();

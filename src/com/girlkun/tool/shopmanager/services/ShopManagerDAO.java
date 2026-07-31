@@ -407,7 +407,8 @@ public class ShopManagerDAO {
             }
 
             Map<Integer, String> sellTypeNames = new HashMap<>();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT id, name FROM type_sell_item_shop")) {
+            String sellTypeTable = (config.dbType == DbConfig.DB_NRO_ARN) ? "shop_sell_type" : "type_sell_item_shop";
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT id, name FROM " + sellTypeTable)) {
                 ResultSet rs = stmt.executeQuery();
                 while (rs.next())
                     sellTypeNames.put(rs.getInt("id"), rs.getString("name"));
@@ -529,9 +530,20 @@ public class ShopManagerDAO {
     public List<TypeSell> getTypeSells() {
         List<TypeSell> list = new ArrayList<>();
         if (config.dbType == DbConfig.DB_NRO_ARN) {
-            list.add(new TypeSell(0, "Vàng"));
-            list.add(new TypeSell(1, "Ngọc"));
-            list.add(new TypeSell(2, "Hồng ngọc"));
+            try {
+                Connection conn = getConnection();
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT id, name FROM shop_sell_type ORDER BY id")) {
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        list.add(new TypeSell(rs.getInt("id"), rs.getString("name")));
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            if (list.isEmpty()) {
+                list.add(new TypeSell(0, "Vàng"));
+            }
             return list;
         }
 
@@ -1426,5 +1438,9 @@ public class ShopManagerDAO {
             System.out.println("Error saving boss config: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    public int getDbType() {
+        return config != null ? config.dbType : DbConfig.DB_TOMAHAWK;
     }
 }

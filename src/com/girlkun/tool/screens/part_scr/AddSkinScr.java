@@ -44,6 +44,8 @@ public class AddSkinScr extends JInternalFrame {
 
     private int latestPartId = -1;
     private int nextItemId = -1;
+    private int nextArrayHead2FramesId = -1;
+    private JComboBox<String> cbDbType;
 
     public AddSkinScr() {
         super("Add new Skin", true, true, true, true);
@@ -59,6 +61,17 @@ public class AddSkinScr extends JInternalFrame {
 
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
+
+        // === DB Type Section ===
+        JPanel dbTypeSection = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        dbTypeSection.setBorder(new EmptyBorder(0, 0, 10, 0));
+        JLabel lblDbType = new JLabel("Loại DB:");
+        lblDbType.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        dbTypeSection.add(lblDbType);
+        cbDbType = new JComboBox<>(new String[]{"GIRLKUN", "NRO ARN"});
+        cbDbType.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        dbTypeSection.add(cbDbType);
+        formPanel.add(dbTypeSection);
 
         // === Head Section ===
         JPanel headSection = new JPanel(new BorderLayout(5, 5));
@@ -330,11 +343,13 @@ public class AddSkinScr extends JInternalFrame {
             try {
                 latestPartId = getLatestPartId();
                 nextItemId = getLatestItemTemplateId() + 1;
+                nextArrayHead2FramesId = getLatestArrayHead2FramesId() + 1;
 
                 SwingUtilities.invokeLater(() -> {
                     recalculateIds();
                     lblItemId.setText("ID: " + nextItemId);
-                    setStatus("Đã tải ID thành công (latest part: " + latestPartId + ", next item: " + nextItemId + ")",
+                    setStatus("Đã tải ID thành công (latest part: " + latestPartId + ", next item: " + nextItemId
+                            + ", next array head: " + nextArrayHead2FramesId + ")",
                             new Color(40, 167, 69));
                 });
             } catch (Exception e) {
@@ -365,6 +380,18 @@ public class AddSkinScr extends JInternalFrame {
     private int getLatestItemTemplateId() throws Exception {
         GirlkunResultSet rs = GirlkunDB.executeQuery("GIRLKUN",
                 "SELECT IFNULL(MAX(id), -1) as max_id FROM item_template");
+        if (rs.first()) {
+            return rs.getInt("max_id");
+        }
+        return -1;
+    }
+
+    /**
+     * ARN không set AUTO_INCREMENT cho array_head_2_frames.id, nên không được insert NULL.
+     */
+    private int getLatestArrayHead2FramesId() throws Exception {
+        GirlkunResultSet rs = GirlkunDB.executeQuery("GIRLKUN",
+                "SELECT IFNULL(MAX(id), -1) as max_id FROM array_head_2_frames");
         if (rs.first()) {
             return rs.getInt("max_id");
         }
@@ -441,6 +468,7 @@ public class AddSkinScr extends JInternalFrame {
         int firstHeadId = latestPartId + 1;
         int bodyId = latestPartId + headCount + 1;
         int legId = latestPartId + headCount + 2;
+        int arrayHead2FramesId = nextArrayHead2FramesId;
 
         // Xác nhận trước khi lưu
         StringBuilder confirmMsg = new StringBuilder("Xác nhận lưu Skin mới:\n\n");
@@ -460,7 +488,8 @@ public class AddSkinScr extends JInternalFrame {
                 headIds.append(latestPartId + 1 + i);
             }
             headIds.append("]");
-            confirmMsg.append(String.format("\narray_head_2_frames: data=%s\n", headIds.toString()));
+            confirmMsg.append(String.format("\narray_head_2_frames: id=%d, data=%s\n",
+                    arrayHead2FramesId, headIds.toString()));
         }
         if (addItem) {
             confirmMsg.append(String.format("\nSkin Item: id=%d, name=%s, icon=%d, head=%d, body=%d, leg=%d\n",
@@ -481,10 +510,12 @@ public class AddSkinScr extends JInternalFrame {
         final int fFirstHeadId = firstHeadId;
         final int fBodyId = bodyId;
         final int fLegId = legId;
+        final int fArrayHead2FramesId = arrayHead2FramesId;
         final boolean fAddItem = addItem;
         final int fIconId = iconId;
         final String fItemName = itemName;
         final int fItemId = nextItemId;
+        final String fDbType = (String) cbDbType.getSelectedItem();
 
         new Thread(() -> {
             try {
@@ -521,19 +552,29 @@ public class AddSkinScr extends JInternalFrame {
                     }
                     headIdsData.append("]");
                     GirlkunDB.executeUpdate("GIRLKUN",
-                            "INSERT INTO `array_head_2_frames` (`id`, `data`) VALUES (NULL, ?)",
-                            headIdsData.toString());
+                            "INSERT INTO `array_head_2_frames` (`id`, `data`) VALUES (?, ?)",
+                            fArrayHead2FramesId, headIdsData.toString());
                 }
 
                 // Insert item_template nếu checkbox bật
                 if (fAddItem) {
-                    GirlkunDB.executeUpdate("GIRLKUN",
-                            "INSERT INTO `item_template` (`id`, `TYPE`, `gender`, `NAME`, `description`, `level`, "
-                                    + "`icon_id`, `part`, `is_up_to_up`, `power_require`, `gold`, `gem`, "
-                                    + "`head`, `body`, `leg`, `is_up_to_up_over_99`, `can_trade`, `comment`, `spine_id`) "
-                                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
-                            fItemId, 5, 3, fItemName, fItemName, 1, fIconId, -1, 0,
-                            150000000, 0, 0, fFirstHeadId, fBodyId, fLegId, 0, 1, "");
+                    if ("NRO ARN".equals(fDbType)) {
+                        GirlkunDB.executeUpdate("GIRLKUN",
+                                "INSERT INTO `item_template` (`id`, `TYPE`, `gender`, `NAME`, `description`, `level`, "
+                                        + "`icon_id`, `part`, `is_up_to_up`, `power_require`, `gold`, `gem`, "
+                                        + "`head`, `body`, `leg`) "
+                                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                fItemId, 5, 3, fItemName, fItemName, 1, fIconId, -1, 0,
+                                150000000, 0, 0, fFirstHeadId, fBodyId, fLegId);
+                    } else {
+                        GirlkunDB.executeUpdate("GIRLKUN",
+                                "INSERT INTO `item_template` (`id`, `TYPE`, `gender`, `NAME`, `description`, `level`, "
+                                        + "`icon_id`, `part`, `is_up_to_up`, `power_require`, `gold`, `gem`, "
+                                        + "`head`, `body`, `leg`, `is_up_to_up_over_99`, `can_trade`, `comment`, `spine_id`) "
+                                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+                                fItemId, 5, 3, fItemName, fItemName, 1, fIconId, -1, 0,
+                                150000000, 0, 0, fFirstHeadId, fBodyId, fLegId, 0, 1, "");
+                    }
                 }
 
                 SwingUtilities.invokeLater(() -> {
