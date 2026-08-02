@@ -136,6 +136,12 @@ public class TilesetEditorDialog extends JFrame {
         toolbar.add(btnLoadTileset);
         toolbar.add(Box.createHorizontalStrut(10));
 
+        JButton btnImportImages = createStyledButton("Import Ảnh Lẻ", new Color(253, 126, 20), Color.WHITE, iconFolder);
+        btnImportImages.addActionListener(e -> importMultipleImages());
+        btnImportImages.setToolTipText("Chọn nhiều ảnh (đã cắt sẵn) và thêm trực tiếp vào danh sách chờ xuất");
+        toolbar.add(btnImportImages);
+        toolbar.add(Box.createHorizontalStrut(10));
+
         btnGrid = createStyledButton("Grid: ON", new Color(80, 80, 85), Color.WHITE, null);
         btnGrid.addActionListener(e -> toggleGrid());
         toolbar.add(btnGrid);
@@ -201,6 +207,13 @@ public class TilesetEditorDialog extends JFrame {
         btnGuide.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnGuide.addActionListener(e -> showGuide());
         toolbar.add(btnGuide);
+        toolbar.add(Box.createHorizontalStrut(10));
+
+        JButton btnOpenFolder = createStyledButton("Mở Thư Mục", new Color(23, 162, 184), Color.WHITE, iconFolder);
+        btnOpenFolder.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnOpenFolder.addActionListener(e -> openOutputFolder());
+        btnOpenFolder.setToolTipText("Mở thư mục chứa file đã xuất (data/tile)");
+        toolbar.add(btnOpenFolder);
         toolbar.add(Box.createHorizontalStrut(10));
 
         JButton btnExport = createStyledButton("3. XUẤT FILE", new Color(40, 167, 69), Color.WHITE, null);
@@ -377,6 +390,67 @@ public class TilesetEditorDialog extends JFrame {
         splitPane.setRightComponent(rightPanel);
 
         add(splitPane, BorderLayout.CENTER);
+    }
+
+    private void importMultipleImages() {
+        FileDialog dialog = new FileDialog(this, "Chọn các ảnh muốn thêm (Multi-select)", FileDialog.LOAD);
+        dialog.setDirectory(lastMapDir != null ? lastMapDir : "data/bg");
+        dialog.setMultipleMode(true);
+        dialog.setFilenameFilter((dir, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg") || lower.endsWith(".gif");
+        });
+        
+        dialog.setVisible(true);
+        
+        File[] files = dialog.getFiles();
+        if (files != null && files.length > 0) {
+            lastMapDir = files[0].getParent();
+            
+            // Sort files logically by name and number
+            Arrays.sort(files, (f1, f2) -> {
+                String n1 = f1.getName();
+                String n2 = f2.getName();
+                int num1 = extractNumber(n1);
+                int num2 = extractNumber(n2);
+                if (num1 != num2) {
+                    return Integer.compare(num1, num2);
+                }
+                return n1.compareToIgnoreCase(n2);
+            });
+            
+            for (File f : files) {
+                try {
+                    BufferedImage img = ImageIO.read(f);
+                    if (img == null) continue;
+                    
+                    if (img.getWidth() != 24 || img.getHeight() != 24) {
+                        BufferedImage resized = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
+                        Graphics2D g = resized.createGraphics();
+                        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                        g.drawImage(img, 0, 0, 24, 24, null);
+                        g.dispose();
+                        img = resized;
+                    }
+                    
+                    addItemToListData(img, new HashSet<>(), new Point(-1, -1));
+                } catch (IOException e) {
+                    System.err.println("Could not load: " + f.getName());
+                }
+            }
+            updateListUI();
+        }
+    }
+
+    private int extractNumber(String name) {
+        try {
+            String num = name.replaceAll("\\D+", "");
+            if (!num.isEmpty()) {
+                return Integer.parseInt(num);
+            }
+        } catch (Exception e) {}
+        return 0;
     }
 
     private void loadMapImage() {
@@ -978,6 +1052,26 @@ public class TilesetEditorDialog extends JFrame {
             return;
         }
 
+        // Kiểm tra và tự động thêm 1 ô trắng chặn 4 cạnh nếu chưa có
+        boolean hasBlockTile = false;
+        for (TileItem item : exportItems) {
+            if (item.types.contains(2) && item.types.contains(8192) && item.types.contains(4) && item.types.contains(8)) {
+                hasBlockTile = true;
+                break;
+            }
+        }
+        if (!hasBlockTile) {
+            BufferedImage whiteTile = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = whiteTile.createGraphics();
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, 24, 24);
+            g.dispose();
+            
+            Set<Integer> types = new HashSet<>(Arrays.asList(2, 4, 8, 8192));
+            addItemToListData(whiteTile, types, new Point(-1, -1));
+            updateListUI();
+        }
+
         // Suggest next ID
         int suggest = 1;
         if (!dataManager.getTilesets().isEmpty()) {
@@ -1082,6 +1176,18 @@ public class TilesetEditorDialog extends JFrame {
         }
     }
 
+    private void openOutputFolder() {
+        try {
+            File dir = new File(TILE_PATH);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            Desktop.getDesktop().open(dir);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Không thể mở thư mục: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void showGuide() {
         String guide = """
                 ╔══════════════════════════════════════════════════════════════════╗
@@ -1095,6 +1201,9 @@ public class TilesetEditorDialog extends JFrame {
                 ║                                                                  ║
                 ║  2. "Load Tileset" - Load tileset đã có từ thư mục data/tile     ║
                 ║     để chỉnh sửa collision hoặc thêm/xóa tile.                   ║
+                ║                                                                  ║
+                ║  *  "Import Ảnh Lẻ" - Chọn nhiều ảnh (đã cắt sẵn) và             ║
+                ║     thêm trực tiếp vào danh sách chờ xuất.                       ║
                 ║                                                                  ║
                 ║  3. Click vào từng ô 24x24 trên Canvas để chọn tile.             ║
                 ║     Có thể kéo chuột để chọn nhiều ô liên tiếp.                  ║
