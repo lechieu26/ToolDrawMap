@@ -114,6 +114,7 @@ public class EffectEditor extends JInternalFrame {
     private JButton cutBtn;
     private JCheckBox autoNewFrameCheck;
     private JCheckBox autoFitCheck;
+    private JComboBox<String> exportDirCombo;
 
     // History (Undo/Redo)
     private boolean isUpdatingList = false;
@@ -161,6 +162,11 @@ public class EffectEditor extends JInternalFrame {
         JButton exportBtn = createStyledButton("Export Data", new Color(50, 90, 50));
         exportBtn.addActionListener(e -> exportBinary());
         
+        exportDirCombo = new JComboBox<>(new String[]{"Ngang", "Dọc"});
+        
+        JButton exportPngBtn = createStyledButton("Export PNG", new Color(50, 90, 90));
+        exportPngBtn.addActionListener(e -> exportPngSpritesheet());
+        
         JButton openOutputBtn = createStyledButton("Open Output", new Color(90, 80, 40));
         openOutputBtn.addActionListener(e -> openOutputFolder());
         
@@ -176,6 +182,8 @@ public class EffectEditor extends JInternalFrame {
         topBar.add(loadAtlasBtn);
         topBar.add(loadDataBtn);
         topBar.add(exportBtn);
+        topBar.add(exportDirCombo);
+        topBar.add(exportPngBtn);
         topBar.add(openOutputBtn);
         topBar.add(new JLabel("|"));
         topBar.add(undoBtn);
@@ -1012,6 +1020,99 @@ public class EffectEditor extends JInternalFrame {
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Could not open folder: " + e.getMessage());
+        }
+    }
+
+    private void exportPngSpritesheet() {
+        if (frames.isEmpty() || atlas == null) {
+            JOptionPane.showMessageDialog(this, "No frames to export.");
+            return;
+        }
+
+        int minX = Integer.MAX_VALUE;
+        int maxX = -Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxY = -Integer.MAX_VALUE;
+
+        for (EffectFrame f : frames) {
+            for (Part p : f.parts) {
+                SpriteInfo info = null;
+                for (SpriteInfo si : imgInfo) {
+                    if (si.id == p.imgId) {
+                        info = si;
+                        break;
+                    }
+                }
+                if (info == null) continue;
+
+                if (p.dx < minX) minX = p.dx;
+                if (p.dx + info.w > maxX) maxX = p.dx + info.w;
+                if (p.dy < minY) minY = p.dy;
+                if (p.dy + info.h > maxY) maxY = p.dy + info.h;
+            }
+        }
+
+        if (minX == Integer.MAX_VALUE) {
+            JOptionPane.showMessageDialog(this, "No valid parts to export.");
+            return;
+        }
+
+        // Đảm bảo trục Oy (X=0) cũng là trục tâm của ô chứa part
+        int maxDistX = Math.max(Math.abs(minX), Math.abs(maxX));
+        int cellW = maxDistX * 2;
+        int anchorX = maxDistX;
+
+        // Cạnh dưới luôn trùng trục Ox (Y=0) hoặc hơn thế nếu có bóng (shadow)
+        int topY = Math.min(0, minY);
+        int bottomY = Math.max(0, maxY);
+        int cellH = bottomY - topY;
+        int anchorY = -topY;
+
+        boolean isHorizontal = exportDirCombo == null || exportDirCombo.getSelectedIndex() == 0;
+        int totalW = isHorizontal ? (cellW * frames.size()) : cellW;
+        int totalH = isHorizontal ? cellH : (cellH * frames.size());
+
+        BufferedImage res = new BufferedImage(totalW > 0 ? totalW : 1, totalH > 0 ? totalH : 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = res.createGraphics();
+        
+        for (int i = 0; i < frames.size(); i++) {
+            EffectFrame f = frames.get(i);
+            int cellStartX = isHorizontal ? (i * cellW) : 0;
+            int cellStartY = isHorizontal ? 0 : (i * cellH);
+            
+            List<Part> sorted = new ArrayList<>(f.parts);
+            sorted.sort(Comparator.comparingInt(p -> p.z));
+            
+            for (Part p : sorted) {
+                SpriteInfo info = null;
+                for (SpriteInfo si : imgInfo) {
+                    if (si.id == p.imgId) {
+                        info = si;
+                        break;
+                    }
+                }
+                if (info == null) continue;
+                
+                int drawX = cellStartX + anchorX + p.dx;
+                int drawY = cellStartY + anchorY + p.dy;
+                
+                g.drawImage(atlas, drawX, drawY, drawX + info.w, drawY + info.h,
+                        info.x, info.y, info.x + info.w, info.y + info.h, null);
+            }
+        }
+        g.dispose();
+
+        FileDialog fd = new FileDialog((Frame) SwingUtilities.getWindowAncestor(this), "Export PNG Spritesheet", FileDialog.SAVE);
+        fd.setFile("spritesheet.png");
+        fd.setVisible(true);
+        if (fd.getFile() != null) {
+            try {
+                File f = new File(fd.getDirectory(), fd.getFile());
+                ImageIO.write(res, "png", f);
+                JOptionPane.showMessageDialog(this, "Exported PNG successfully!");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Export PNG failed: " + ex.getMessage());
+            }
         }
     }
 
