@@ -1052,7 +1052,7 @@ public class TilesetEditorDialog extends JFrame {
             return;
         }
 
-        // Kiểm tra và tự động thêm 1 ô trắng chặn 4 cạnh nếu chưa có
+        // Kiểm tra và tự động thêm 1 ô trong suốt chặn 4 cạnh nếu chưa có
         boolean hasBlockTile = false;
         for (TileItem item : exportItems) {
             if (item.types.contains(2) && item.types.contains(8192) && item.types.contains(4) && item.types.contains(8)) {
@@ -1061,14 +1061,14 @@ public class TilesetEditorDialog extends JFrame {
             }
         }
         if (!hasBlockTile) {
-            BufferedImage whiteTile = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = whiteTile.createGraphics();
-            g.setColor(Color.WHITE);
+            BufferedImage transparentTile = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = transparentTile.createGraphics();
+            g.setColor(new Color(0, 0, 0, 0)); // Transparent background
             g.fillRect(0, 0, 24, 24);
             g.dispose();
             
             Set<Integer> types = new HashSet<>(Arrays.asList(2, 4, 8, 8192));
-            addItemToListData(whiteTile, types, new Point(-1, -1));
+            addItemToListData(transparentTile, types, new Point(-1, -1));
             updateListUI();
         }
 
@@ -1109,15 +1109,26 @@ public class TilesetEditorDialog extends JFrame {
                 }
             }
 
+            // Prepare new output paths
+            String extOutputBasePath = "outputs/TileSet";
+            String extResBasePath = extOutputBasePath + "/res";
+            String extTileSetInfoPath = extOutputBasePath + "/tile_set_info";
+
             // Ensure output directories exist
             ensureDir(RES_BASE_PATH);
             ensureDir(TILE_PATH);
             ensureDir(new File(TILE_SET_INFO_PATH).getParent());
+            ensureDir(extOutputBasePath);
+            ensureDir(extResBasePath);
+            ensureDir(new File(extTileSetInfoPath).getParent());
 
             // Save images for all zoom levels
             for (int zoomLevel = 1; zoomLevel <= 4; zoomLevel++) {
                 String zoomDir = RES_BASE_PATH + "/x" + zoomLevel;
                 ensureDir(zoomDir);
+                
+                String extZoomDir = extResBasePath + "/x" + zoomLevel;
+                ensureDir(extZoomDir);
 
                 int targetSize = 24 * zoomLevel;
 
@@ -1138,11 +1149,9 @@ public class TilesetEditorDialog extends JFrame {
                     String filename = tsId + "$" + (i + 1);
                     File saveFile = new File(zoomDir, filename);
                     ImageIO.write(img, "PNG", saveFile);
-
-                    // Save with .png extension
-                    String filenamePng = tsId + "$" + (i + 1) + ".png";
-                    File saveFilePng = new File(zoomDir, filenamePng);
-                    ImageIO.write(img, "PNG", saveFilePng);
+                    
+                    File extSaveFile = new File(extZoomDir, filename);
+                    ImageIO.write(img, "PNG", extSaveFile);
                 }
             }
 
@@ -1160,13 +1169,15 @@ public class TilesetEditorDialog extends JFrame {
             // Save tile_set_info
             dataManager.updateTileset(tsId, newTypes);
             dataManager.save(TILE_SET_INFO_PATH);
+            dataManager.save(extTileSetInfoPath);
 
             // Note: Restart tool hoặc reload map để cập nhật tile_set_info
 
             String msg = "Đã lưu Tileset " + tsId + " thành công!\n" +
-                    "- Images: " + RES_BASE_PATH + "/x[1-4]/" + tsId + "$*.png\n" +
+                    "- Images: " + RES_BASE_PATH + "/x[1-4]/" + tsId + "$*\n" +
                     "- Strip: " + TILE_PATH + "/" + tsId + "\n" +
-                    "- Info: " + TILE_SET_INFO_PATH;
+                    "- Info: " + TILE_SET_INFO_PATH + "\n" +
+                    "- Ext Output: " + extOutputBasePath;
 
             JOptionPane.showMessageDialog(this, msg, "OK", JOptionPane.INFORMATION_MESSAGE);
 
