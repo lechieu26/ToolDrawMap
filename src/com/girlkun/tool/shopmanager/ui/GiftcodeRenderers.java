@@ -44,7 +44,9 @@ public class GiftcodeRenderers {
         return name;
     }
 
-    private static final String ICON_PATH = "data/data/icon/x4/"; // User requested x4
+    private static String getIconPath() {
+        return com.girlkun.tool.utils.PathConfig.getDataPath() + "/icon/x4/";
+    }
 
     public static Image getItemIcon(int tempId, ShopManagerDAO dao) {
         if (iconCache.containsKey(tempId)) {
@@ -68,7 +70,7 @@ public class GiftcodeRenderers {
         }
 
         try {
-            File f = new File(ICON_PATH + iconId + ".png");
+            File f = new File(getIconPath() + iconId + ".png");
             if (f.exists()) {
                 BufferedImage img = ImageIO.read(f);
                 iconCache.put(tempId, img);

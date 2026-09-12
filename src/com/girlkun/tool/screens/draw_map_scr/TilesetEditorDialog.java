@@ -26,8 +26,12 @@ public class TilesetEditorDialog extends JFrame {
     }
 
     // Output paths (relative)
-    private static final String TILE_SET_INFO_PATH = "data/data/map/tile_set_info";
-    private static final String RES_BASE_PATH = "data/data/res";
+    private static String getTileSetInfoPath() {
+        return com.girlkun.tool.utils.PathConfig.getDataPath() + "/map/tile_set_info";
+    }
+    private static String getResBasePath() {
+        return com.girlkun.tool.utils.PathConfig.getDataPath() + "/res";
+    }
     private static final String TILE_PATH = "data/tile";
 
     // Cache thư mục cuối cùng đã chọn
@@ -85,7 +89,7 @@ public class TilesetEditorDialog extends JFrame {
     public TilesetEditorDialog() {
         super("NRO Tileset Editor");
         this.dataManager = new TilesetData();
-        this.dataManager.load(TILE_SET_INFO_PATH);
+        this.dataManager.load(getTileSetInfoPath());
         loadIcons();
         initUI();
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -1115,16 +1119,16 @@ public class TilesetEditorDialog extends JFrame {
             String extTileSetInfoPath = extOutputBasePath + "/tile_set_info";
 
             // Ensure output directories exist
-            ensureDir(RES_BASE_PATH);
+            ensureDir(getResBasePath());
             ensureDir(TILE_PATH);
-            ensureDir(new File(TILE_SET_INFO_PATH).getParent());
+            ensureDir(new File(getTileSetInfoPath()).getParent());
             ensureDir(extOutputBasePath);
             ensureDir(extResBasePath);
             ensureDir(new File(extTileSetInfoPath).getParent());
 
             // Save images for all zoom levels
             for (int zoomLevel = 1; zoomLevel <= 4; zoomLevel++) {
-                String zoomDir = RES_BASE_PATH + "/x" + zoomLevel;
+                String zoomDir = getResBasePath() + "/x" + zoomLevel;
                 ensureDir(zoomDir);
                 
                 String extZoomDir = extResBasePath + "/x" + zoomLevel;
@@ -1168,15 +1172,15 @@ public class TilesetEditorDialog extends JFrame {
 
             // Save tile_set_info
             dataManager.updateTileset(tsId, newTypes);
-            dataManager.save(TILE_SET_INFO_PATH);
+            dataManager.save(getTileSetInfoPath());
             dataManager.save(extTileSetInfoPath);
 
             // Note: Restart tool hoặc reload map để cập nhật tile_set_info
 
             String msg = "Đã lưu Tileset " + tsId + " thành công!\n" +
-                    "- Images: " + RES_BASE_PATH + "/x[1-4]/" + tsId + "$*\n" +
+                    "- Images: " + getResBasePath() + "/x[1-4]/" + tsId + "$*\n" +
                     "- Strip: " + TILE_PATH + "/" + tsId + "\n" +
-                    "- Info: " + TILE_SET_INFO_PATH + "\n" +
+                    "- Info: " + getTileSetInfoPath() + "\n" +
                     "- Ext Output: " + extOutputBasePath;
 
             JOptionPane.showMessageDialog(this, msg, "OK", JOptionPane.INFORMATION_MESSAGE);

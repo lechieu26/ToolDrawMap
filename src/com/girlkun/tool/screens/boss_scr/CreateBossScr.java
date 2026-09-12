@@ -25,7 +25,9 @@ import java.util.List;
 
 public class CreateBossScr extends JInternalFrame {
 
-    private static final String ICON_PATH = "data/data/icon/x4";
+    private static String getIconPath() {
+        return com.girlkun.tool.utils.PathConfig.getDataPath() + "/icon/x4";
+    }
     private static final int ZOOM = 4;
 
     private static class PartFrame {
@@ -1041,7 +1043,7 @@ public class CreateBossScr extends JInternalFrame {
         if (iconCache.containsKey(id))
             return iconCache.get(id);
         try {
-            File f = new File(ICON_PATH, id + ".png");
+            File f = new File(getIconPath(), id + ".png");
             if (f.exists()) {
                 BufferedImage img = ImageIO.read(f);
                 iconCache.put(id, img);

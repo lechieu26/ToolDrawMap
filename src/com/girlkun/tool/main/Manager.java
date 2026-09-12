@@ -131,7 +131,7 @@ public class Manager {
       this.effectTemplates = new ArrayList<>();
 
       try {
-         java.io.File effDir = new java.io.File("data/data/effdata/x1");
+         java.io.File effDir = new java.io.File(com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1");
          if (effDir.exists() && effDir.isDirectory()) {
             java.io.File[] files = effDir.listFiles();
             if (files != null) {
@@ -167,7 +167,7 @@ public class Manager {
       EffectTemplate eff = null;
 
       try {
-         java.io.File file = new java.io.File("data/data/effdata/x1/" + id);
+         java.io.File file = new java.io.File(com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1/" + id);
          if (!file.exists()) {
             return null;
          }
@@ -379,7 +379,7 @@ public class Manager {
 
    private void loadTileType() {
       try {
-         DataInputStream dis = new DataInputStream(new FileInputStream("data/data/map/tile_set_info"));
+         DataInputStream dis = new DataInputStream(new FileInputStream(com.girlkun.tool.utils.PathConfig.getDataPath() + "/map/tile_set_info"));
          int nTileset = dis.readUnsignedByte();
 
          for (int i = 0; i < nTileset; i++) {

@@ -5,8 +5,14 @@ package com.girlkun;
  * Thay đổi URL format để thêm serverTimezone và các tham số cần thiết
  */
 public class Resource {
-    // Path to properties file
-    public static final byte[] pathFileProperties = "data/data/config/config.properties".getBytes();
+    // Path to properties file - load dong tu PathConfig
+    public static byte[] pathFileProperties = com.girlkun.tool.utils.PathConfig.getConfigPath().getBytes();
+
+    public static void setPathFileProperties(String path) {
+        if (path != null && !path.trim().isEmpty()) {
+            pathFileProperties = path.trim().getBytes();
+        }
+    }
 
     // JDBC URL format cho MySQL 8.x
     public static final byte[] formatURL = "%s".getBytes(); // Sẽ dùng trực tiếp URL từ file config

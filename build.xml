@@ -13,14 +13,9 @@
     </target>
     
     <target name="-post-jar">
-        <!-- Chỉ copy libs, KHÔNG copy data -->
+        <!-- Chỉ copy libs, KHÔNG copy data/data -->
         <copy todir="${dist.dir}/lib" failonerror="false">
             <fileset dir="lib"/>
-        </copy>
-        <!-- Copy file config nhỏ để tiện chỉnh sửa -->
-        <mkdir dir="${dist.dir}/data/data/config"/>
-        <copy todir="${dist.dir}/data/data/config" failonerror="false">
-            <fileset dir="data/data/config"/>
         </copy>
     </target>
 </project>

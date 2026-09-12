@@ -22,6 +22,8 @@ public class DbConfigScr extends JInternalFrame {
     private static final String ICON_SUCCESS = "data/success.png";
     private static final String ICON_FAILED = "data/failed.png";
 
+    private JTextField txtDataPath, txtConfigPath;
+    private JButton btnBrowseData, btnBrowseConfig;
     private JTextField txtDbHost, txtDbPort, txtDbUser, txtDbPass, txtDbName;
     private JComboBox<String> cbDbType;
     private JTextArea txtDbStatus; // Dùng JTextArea để hiển thị toàn bộ lỗi
@@ -30,8 +32,8 @@ public class DbConfigScr extends JInternalFrame {
     private final ShopManagerDAO dao;
 
     public DbConfigScr() {
-        super("Cấu hình Database", true, true, true, true);
-        this.setSize(550, 600);
+        super("Cấu hình Database & Data Path", true, true, true, true);
+        this.setSize(680, 680);
         this.setFrameIcon(new ImageIcon("icon.png"));
 
         this.dao = ShopManagerDAO.gI();
@@ -41,10 +43,10 @@ public class DbConfigScr extends JInternalFrame {
 
     private void initComponents() {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        mainPanel.setBorder(new EmptyBorder(15, 20, 15, 20));
 
         // Title
-        JLabel lblTitle = new JLabel("Cấu hình kết nối Database", JLabel.CENTER);
+        JLabel lblTitle = new JLabel("Cấu hình kết nối Database & Đường dẫn Data", JLabel.CENTER);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTitle.setForeground(new Color(60, 141, 188));
         mainPanel.add(lblTitle, BorderLayout.NORTH);
@@ -52,8 +54,26 @@ public class DbConfigScr extends JInternalFrame {
         // Form Panel
         JPanel formPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.insets = new Insets(6, 6, 6, 6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Path Data row
+        txtDataPath = new JTextField(20);
+        btnBrowseData = new JButton("Chọn folder...");
+        styleSmallButton(btnBrowseData, new Color(41, 128, 185));
+        btnBrowseData.addActionListener(e -> chooseDataFolder());
+        JPanel pnlDataPath = new JPanel(new BorderLayout(5, 0));
+        pnlDataPath.add(txtDataPath, BorderLayout.CENTER);
+        pnlDataPath.add(btnBrowseData, BorderLayout.EAST);
+
+        // Path Config row
+        txtConfigPath = new JTextField(20);
+        btnBrowseConfig = new JButton("Chọn file...");
+        styleSmallButton(btnBrowseConfig, new Color(41, 128, 185));
+        btnBrowseConfig.addActionListener(e -> chooseConfigFile());
+        JPanel pnlConfigPath = new JPanel(new BorderLayout(5, 0));
+        pnlConfigPath.add(txtConfigPath, BorderLayout.CENTER);
+        pnlConfigPath.add(btnBrowseConfig, BorderLayout.EAST);
 
         txtDbHost = new JTextField(20);
         txtDbPort = new JTextField(20);
@@ -63,16 +83,18 @@ public class DbConfigScr extends JInternalFrame {
         
         cbDbType = new JComboBox<>(new String[]{"Tomahawk (Cũ)", "NRO ARN (Mới)"});
 
-        addFormRow(formPanel, gbc, 0, "Host:", txtDbHost);
-        addFormRow(formPanel, gbc, 1, "Port:", txtDbPort);
-        addFormRow(formPanel, gbc, 2, "User:", txtDbUser);
-        addFormRow(formPanel, gbc, 3, "Password:", txtDbPass);
-        addFormRow(formPanel, gbc, 4, "Database:", txtDbName);
-        addFormRow(formPanel, gbc, 5, "DB Type:", cbDbType);
+        addFormRow(formPanel, gbc, 0, "Path Data:", pnlDataPath);
+        addFormRow(formPanel, gbc, 1, "Path Config:", pnlConfigPath);
+        addFormRow(formPanel, gbc, 2, "Host:", txtDbHost);
+        addFormRow(formPanel, gbc, 3, "Port:", txtDbPort);
+        addFormRow(formPanel, gbc, 4, "User:", txtDbUser);
+        addFormRow(formPanel, gbc, 5, "Password:", txtDbPass);
+        addFormRow(formPanel, gbc, 6, "Database:", txtDbName);
+        addFormRow(formPanel, gbc, 7, "DB Type:", cbDbType);
 
         // Status area - icon và text cùng 1 dòng
         gbc.gridx = 0;
-        gbc.gridy = 6;
+        gbc.gridy = 8;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
@@ -86,7 +108,7 @@ public class DbConfigScr extends JInternalFrame {
         statusPanel.add(lblStatusIcon);
 
         // Text status - dùng JLabel thay vì JTextArea
-        txtDbStatus = new JTextArea(2, 35);
+        txtDbStatus = new JTextArea(2, 42);
         txtDbStatus.setEditable(false);
         txtDbStatus.setLineWrap(true);
         txtDbStatus.setWrapStyleWord(true);
@@ -117,6 +139,14 @@ public class DbConfigScr extends JInternalFrame {
         mainPanel.add(btnPanel, BorderLayout.SOUTH);
 
         add(mainPanel);
+    }
+
+    private void styleSmallButton(JButton btn, Color bgColor) {
+        btn.setBackground(bgColor);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
     private void addFormRow(JPanel p, GridBagConstraints gbc, int row, String label, Component cmp) {
@@ -172,8 +202,152 @@ public class DbConfigScr extends JInternalFrame {
         }
     }
 
+    private void chooseDataFolder() {
+        String cur = txtDataPath.getText().trim();
+        String selectedDir = chooseNativeFolder("Chọn thư mục Data Server", cur);
+        if (selectedDir != null && !selectedDir.trim().isEmpty()) {
+            java.io.File selected = new java.io.File(selectedDir);
+            String relPath = com.girlkun.tool.utils.PathConfig.toRelativePath(selected.getAbsolutePath());
+            txtDataPath.setText(relPath);
+
+            // Kiểm tra tự động file config trong folder được chọn
+            java.io.File cfgFile = new java.io.File(selected, "config/config.properties");
+            if (!cfgFile.exists()) {
+                cfgFile = new java.io.File(selected, "config.properties");
+            }
+            if (cfgFile.exists()) {
+                String relCfg = com.girlkun.tool.utils.PathConfig.toRelativePath(cfgFile.getAbsolutePath());
+                txtConfigPath.setText(relCfg);
+                loadFromConfigFile(relCfg);
+            }
+        }
+    }
+
+    private void chooseConfigFile() {
+        Frame frame = (Frame) SwingUtilities.getWindowAncestor(this);
+        FileDialog dialog = new FileDialog(frame, "Chọn file config.properties", FileDialog.LOAD);
+
+        String cur = txtConfigPath.getText().trim();
+        if (!cur.isEmpty()) {
+            java.io.File f = new java.io.File(cur);
+            if (f.exists()) {
+                dialog.setDirectory(f.getParent());
+                dialog.setFile(f.getName());
+            } else {
+                dialog.setDirectory(cur);
+            }
+        }
+        dialog.setFile("*.properties");
+        dialog.setFilenameFilter((dir, name) -> name.toLowerCase().endsWith(".properties"));
+        dialog.setVisible(true);
+
+        String fileName = dialog.getFile();
+        String dirName = dialog.getDirectory();
+        if (fileName != null && dirName != null) {
+            java.io.File selectedFile = new java.io.File(dirName, fileName);
+            String relCfg = com.girlkun.tool.utils.PathConfig.toRelativePath(selectedFile.getAbsolutePath());
+            txtConfigPath.setText(relCfg);
+            loadFromConfigFile(relCfg);
+
+            // Nếu ô Data Path trống hoặc chưa thiết lập, thử suy ra data path từ config path
+            java.io.File parent = selectedFile.getParentFile();
+            if (parent != null && parent.getName().equalsIgnoreCase("config")) {
+                java.io.File dataDir = parent.getParentFile();
+                if (dataDir != null) {
+                    txtDataPath.setText(com.girlkun.tool.utils.PathConfig.toRelativePath(dataDir.getAbsolutePath()));
+                }
+            }
+        }
+    }
+
+    private String chooseNativeFolder(String title, String initialPath) {
+        if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
+            try {
+                String initDir = "";
+                if (initialPath != null && !initialPath.trim().isEmpty()) {
+                    java.io.File f = new java.io.File(initialPath);
+                    if (f.exists()) {
+                        initDir = f.getAbsolutePath();
+                    }
+                }
+
+                String script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;\n"
+                        + "Add-Type -AssemblyName System.Windows.Forms;\n"
+                        + "$dlg = New-Object System.Windows.Forms.FolderBrowserDialog;\n"
+                        + "$dlg.Description = '" + (title != null ? title.replace("'", "''") : "Chọn thư mục") + "';\n"
+                        + "$dlg.ShowNewFolderButton = $true;\n"
+                        + "$dlg.AutoUpgradeEnabled = $true;\n";
+                if (!initDir.isEmpty()) {
+                    script += "$dlg.SelectedPath = '" + initDir.replace("'", "''") + "';\n";
+                }
+                script += "if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {\n"
+                        + "    Write-Output $dlg.SelectedPath\n"
+                        + "}\n";
+
+                String encoded = java.util.Base64.getEncoder().encodeToString(
+                        script.getBytes(java.nio.charset.StandardCharsets.UTF_16LE)
+                );
+
+                ProcessBuilder pb = new ProcessBuilder(
+                        "powershell.exe",
+                        "-NoProfile",
+                        "-ExecutionPolicy", "Bypass",
+                        "-STA",
+                        "-EncodedCommand", encoded
+                );
+                pb.redirectErrorStream(true);
+                Process p = pb.start();
+
+                String selected = null;
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String trimmed = line.trim();
+                        if (!trimmed.isEmpty() && new java.io.File(trimmed).isDirectory()) {
+                            selected = trimmed;
+                        }
+                    }
+                }
+                p.waitFor();
+                if (selected != null && !selected.isEmpty()) {
+                    return selected;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Fallback: JFileChooser
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle(title != null ? title : "Chọn thư mục");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setAcceptAllFileFilterUsed(false);
+        if (initialPath != null && !initialPath.trim().isEmpty()) {
+            chooser.setCurrentDirectory(new java.io.File(initialPath));
+        }
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            return chooser.getSelectedFile().getAbsolutePath();
+        }
+        return null;
+    }
+
+    private void loadFromConfigFile(String configFilePath) {
+        DbConfig cfg = ConfigManager.load(configFilePath);
+        txtDbHost.setText(cfg.host);
+        txtDbPort.setText(String.valueOf(cfg.port));
+        txtDbUser.setText(cfg.user);
+        txtDbPass.setText(cfg.password);
+        txtDbName.setText(cfg.database);
+        cbDbType.setSelectedIndex(cfg.dbType == DbConfig.DB_NRO_ARN ? 1 : 0);
+        if (cfg.dataPath != null && !cfg.dataPath.trim().isEmpty()) {
+            txtDataPath.setText(cfg.dataPath);
+        }
+    }
+
     private void loadConfig() {
         DbConfig cfg = ConfigManager.load();
+        txtDataPath.setText(cfg.dataPath != null ? cfg.dataPath : com.girlkun.tool.utils.PathConfig.getDataPath());
+        txtConfigPath.setText(cfg.configPath != null ? cfg.configPath : com.girlkun.tool.utils.PathConfig.getConfigPath());
         txtDbHost.setText(cfg.host);
         txtDbPort.setText(String.valueOf(cfg.port));
         txtDbUser.setText(cfg.user);
@@ -263,6 +437,20 @@ public class DbConfigScr extends JInternalFrame {
 
     private void saveConfig() {
         try {
+            String dataPath = txtDataPath.getText().trim();
+            String configPath = txtConfigPath.getText().trim();
+            if (dataPath.isEmpty()) {
+                dataPath = "data/data";
+            }
+            if (configPath.isEmpty()) {
+                configPath = dataPath + "/config/config.properties";
+            }
+
+            dataPath = com.girlkun.tool.utils.PathConfig.toRelativePath(dataPath);
+            configPath = com.girlkun.tool.utils.PathConfig.toRelativePath(configPath);
+            txtDataPath.setText(dataPath);
+            txtConfigPath.setText(configPath);
+
             int port = Integer.parseInt(txtDbPort.getText().trim());
             int dbType = cbDbType.getSelectedIndex() == 1 ? DbConfig.DB_NRO_ARN : DbConfig.DB_TOMAHAWK;
             DbConfig cfg = new DbConfig(
@@ -272,7 +460,11 @@ public class DbConfigScr extends JInternalFrame {
                     txtDbPass.getText(),
                     txtDbName.getText().trim(),
                     dbType);
+            cfg.dataPath = dataPath;
+            cfg.configPath = configPath;
 
+            com.girlkun.tool.utils.PathConfig.saveToolConfig(dataPath, configPath);
+            com.girlkun.Resource.setPathFileProperties(configPath);
             ConfigManager.save(cfg);
             dao.reloadConfig();
             com.girlkun.database.GirlkunDB.reload(); // Reload Main Tool DB config

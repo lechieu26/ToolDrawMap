@@ -62,13 +62,13 @@ public class Util {
    }
 
    public static BufferedImage getImageById(int id, int zoomSize) throws Exception {
-      return ImageIO.read(new File("data/data/icon/x" + zoomSize + "/" + id + ".png"));
+      return ImageIO.read(new File(PathConfig.getDataPath() + "/icon/x" + zoomSize + "/" + id + ".png"));
    }
 
    public static BufferedImage getBgImageById(int id, int zoomSize) throws Exception {
-      File file = new File("data/data/item_bg_temp/x" + zoomSize + "/" + id + ".png");
+      File file = new File(PathConfig.getDataPath() + "/item_bg_temp/x" + zoomSize + "/" + id + ".png");
       if (!file.exists()) {
-         file = new File("data/data/item_bg_temp/x2/" + id + ".png");
+         file = new File(PathConfig.getDataPath() + "/item_bg_temp/x2/" + id + ".png");
       }
       return ImageIO.read(file);
    }

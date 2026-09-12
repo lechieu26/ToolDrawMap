@@ -10,6 +10,8 @@ public class DbConfig {
     public String password;
     public String database;
     public int dbType = DB_TOMAHAWK;
+    public String dataPath;
+    public String configPath;
 
     public DbConfig() {
     }

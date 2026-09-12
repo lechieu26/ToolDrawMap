@@ -39,11 +39,6 @@
         <copy todir="${dist.dir}/lib">
             <fileset dir="lib"/>
         </copy>
-        <!-- Chi copy config, KHONG copy toan bo data folder -->
-        <mkdir dir="${dist.dir}/data/data/config"/>
-        <copy todir="${dist.dir}/data/data/config">
-            <fileset dir="data/data/config"/>
-        </copy>
     </target>
     
     <target name="run" depends="compile">

@@ -31,7 +31,9 @@ public class CreateNPCScr extends JInternalFrame {
 
     // Cache thư mục đã chọn (dùng chung)
     private static String lastImageDir = System.getProperty("user.home");
-    private static final String ICON_PATH = "data/data/icon/x4";
+    private static String getIconPath() {
+        return com.girlkun.tool.utils.PathConfig.getDataPath() + "/icon/x4";
+    }
 
     // Avatar
     private BufferedImage avatarImage;
@@ -103,15 +105,9 @@ public class CreateNPCScr extends JInternalFrame {
 
     private BufferedImage loadImageById(int id) {
         try {
-            File f = new File(ICON_PATH + "/" + id + ".png");
+            File f = new File(getIconPath() + "/" + id + ".png");
             if (f.exists()) {
                 return ImageIO.read(f);
-            } else {
-                // Try absolute path if relative fails
-                f = new File(System.getProperty("user.dir") + "/" + ICON_PATH + "/" + id + ".png");
-                if (f.exists()) {
-                    return ImageIO.read(f);
-                }
             }
         } catch (Exception e) {
             System.out.println("Cannot load image " + id + ": " + e.getMessage());
@@ -1345,7 +1341,7 @@ public class CreateNPCScr extends JInternalFrame {
                             iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
                             iconLabel.setPreferredSize(new Dimension(64, 64));
                             try {
-                                File iconFile = new File(ICON_PATH + "/" + ct.iconId + ".png");
+                                File iconFile = new File(getIconPath() + "/" + ct.iconId + ".png");
                                 if (iconFile.exists()) {
                                     BufferedImage iconImg = ImageIO.read(iconFile);
                                     // Scale to fit
@@ -1490,7 +1486,9 @@ public class CreateNPCScr extends JInternalFrame {
     }
 
     // Đường dẫn mặc định
-    private static final String IMAGE_DIR_PATH = System.getProperty("user.dir") + "/data/data/icon/x4";
+    private static String getImageDirPath() {
+        return com.girlkun.tool.utils.PathConfig.getDataPath() + "/icon/x4";
+    }
     // Cache thư mục cuối cùng đã chọn (dùng chung cho cả avatar và part)
     private static String lastSelectedDir = null;
 
@@ -1500,7 +1498,7 @@ public class CreateNPCScr extends JInternalFrame {
         FileDialog dialog = new FileDialog(frame, "Chọn Avatar NPC", FileDialog.LOAD);
 
         // Set thư mục: ưu tiên thư mục cuối cùng đã chọn, nếu chưa có thì dùng mặc định
-        dialog.setDirectory(lastSelectedDir != null ? lastSelectedDir : IMAGE_DIR_PATH);
+        dialog.setDirectory(lastSelectedDir != null ? lastSelectedDir : getImageDirPath());
 
         // Filter file ảnh
         dialog.setFilenameFilter((dir, name) -> {
@@ -1558,7 +1556,7 @@ public class CreateNPCScr extends JInternalFrame {
         FileDialog dialog = new FileDialog(frame, title, FileDialog.LOAD);
 
         // Set thư mục: ưu tiên thư mục cuối cùng đã chọn, nếu chưa có thì dùng mặc định
-        dialog.setDirectory(lastSelectedDir != null ? lastSelectedDir : IMAGE_DIR_PATH);
+        dialog.setDirectory(lastSelectedDir != null ? lastSelectedDir : getImageDirPath());
 
         // Filter file ảnh
         dialog.setFilenameFilter((dir, name) -> {

@@ -404,7 +404,7 @@ public class EffectExtractor extends JInternalFrame {
 
         JButton convertBtn = createStyledButton("📦 CONVERT SANG EFFECT TOOL", purpleColor);
         convertBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        convertBtn.setToolTipText("Đóng gói effect_data + PNG thành file Tool (data/data/effdata/x1/{id}) và tạo thumbnail preview (data/effect/{id}/0.png)");
+        convertBtn.setToolTipText("Đóng gói effect_data + PNG thành file Tool (" + com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1/{id}) và tạo thumbnail preview (data/effect/{id}/0.png)");
         convertBtn.addActionListener(e -> runConvertToTool());
         btnPanel.add(convertBtn);
 
@@ -1342,7 +1342,7 @@ public class EffectExtractor extends JInternalFrame {
 
         int opt = JOptionPane.showConfirmDialog(this,
                 "Chức năng này sẽ đóng gói các Effect trong danh sách thành:\n"
-                + "1. File dữ liệu: data/data/effdata/x1/{id}\n"
+                + "1. File dữ liệu: " + com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1/{id}\n"
                 + "2. Ảnh Thumbnail: data/effect/{id}/0.png\n\n"
                 + "Và nạp trực tiếp vào bộ nhớ Tool để bạn có thể sử dụng ngay trong Draw Map.\nBạn có muốn tiếp tục?",
                 "Xác nhận Convert sang Effect Tool", JOptionPane.YES_NO_OPTION);
@@ -1399,7 +1399,7 @@ public class EffectExtractor extends JInternalFrame {
                 if (finalErrorCount == 0) {
                     JOptionPane.showMessageDialog(this,
                             "Đã convert và nạp thành công " + finalSuccessCount + " Effect vào Tool!\n"
-                            + "Dữ liệu đã được tạo tại:\n- data/data/effdata/x1/\n- data/effect/{id}/0.png\n\n"
+                            + "Dữ liệu đã được tạo tại:\n- " + com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1/\n- data/effect/{id}/0.png\n\n"
                             + "Bạn có thể mở Effect Table trong Draw Map để chọn và vẽ effect ngay.",
                             "Thành công", JOptionPane.INFORMATION_MESSAGE);
                 } else {
@@ -1513,8 +1513,8 @@ public class EffectExtractor extends JInternalFrame {
             }
         }
 
-        // 7. Đóng gói file data/data/effdata/x1/{id}
-        File effDataDir = new File("data/data/effdata/x1");
+        // 7. Đóng gói file data/effdata/x1/{id}
+        File effDataDir = new File(com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1");
         if (!effDataDir.exists()) {
             effDataDir.mkdirs();
         }
@@ -1562,7 +1562,7 @@ public class EffectExtractor extends JInternalFrame {
 
         final int finalId = id;
         SwingUtilities.invokeLater(() -> {
-            log("  [✓] Đã tạo file Tool: data/data/effdata/x1/" + finalId);
+            log("  [✓] Đã tạo file Tool: " + com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1/" + finalId);
             log("  [✓] Đã tạo thumbnail: data/effect/" + finalId + "/0.png");
         });
         return id;
