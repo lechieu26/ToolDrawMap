@@ -240,7 +240,7 @@ public class DbConfigScr extends JInternalFrame {
      */
     private String testConnectionWithTimeout(String host, int port, String user, String pass, String dbName) {
         String url = String.format(
-                "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&connectTimeout=%d&socketTimeout=%d",
+                "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh&connectTimeout=%d&socketTimeout=%d",
                 host, port, dbName,
                 CONNECTION_TIMEOUT_SECONDS * 1000,
                 CONNECTION_TIMEOUT_SECONDS * 1000);

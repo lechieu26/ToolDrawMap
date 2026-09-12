@@ -195,7 +195,17 @@ public class BGItemTable extends JFrame {
       this.pack();
    }
 
+   public void clearTableSelection() {
+      if (this.tbl1 != null) this.tbl1.clearSelection();
+      if (this.tbl2 != null) this.tbl2.clearSelection();
+      if (this.tbl3 != null) this.tbl3.clearSelection();
+      if (this.tbl4 != null) this.tbl4.clearSelection();
+   }
+
    private void tbl1MouseClicked(MouseEvent evt) {
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl1.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer1.get(index), 1);
@@ -203,6 +213,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl1KeyPressed(KeyEvent evt) {
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl1.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer1.get(index), 1);
@@ -210,6 +223,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl1KeyReleased(KeyEvent evt) {
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl1.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer1.get(index), 1);
@@ -217,6 +233,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl2MouseClicked(MouseEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl2.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer2.get(index), 2);
@@ -224,6 +243,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl2KeyPressed(KeyEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl2.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer2.get(index), 2);
@@ -231,6 +253,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl2KeyReleased(KeyEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl2.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer2.get(index), 2);
@@ -238,6 +263,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl3MouseClicked(MouseEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl3.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer3.get(index), 3);
@@ -245,6 +273,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl3KeyPressed(KeyEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl3.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer3.get(index), 3);
@@ -252,6 +283,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl3KeyReleased(KeyEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl3.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer3.get(index), 3);
@@ -259,6 +293,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl4MouseClicked(MouseEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
       int index = this.tbl4.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer4.get(index), 4);
@@ -266,6 +303,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl4KeyPressed(KeyEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
       int index = this.tbl4.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer4.get(index), 4);
@@ -273,6 +313,9 @@ public class BGItemTable extends JFrame {
    }
 
    private void tbl4KeyReleased(KeyEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
       int index = this.tbl4.getSelectedRow();
       if (index != -1) {
          this.drawMapScr.setBGItemTemplateChoose(this.itemLayer4.get(index), 4);

@@ -158,6 +158,9 @@ public class EffectEditor extends JInternalFrame {
         
         JButton loadDataBtn = createStyledButton("Load Data", new Color(70, 70, 120));
         loadDataBtn.addActionListener(e -> openLoadDialog());
+
+        JButton extractorBtn = createStyledButton("Effect Extractor", new Color(204, 51, 102));
+        extractorBtn.addActionListener(e -> openEffectExtractor());
         
         JButton exportBtn = createStyledButton("Export Data", new Color(50, 90, 50));
         exportBtn.addActionListener(e -> exportBinary());
@@ -181,6 +184,7 @@ public class EffectEditor extends JInternalFrame {
 
         topBar.add(loadAtlasBtn);
         topBar.add(loadDataBtn);
+        topBar.add(extractorBtn);
         topBar.add(exportBtn);
         topBar.add(exportDirCombo);
         topBar.add(exportPngBtn);
@@ -1586,6 +1590,37 @@ public class EffectEditor extends JInternalFrame {
                 updatePartsList();
                 repaint();
             }
+        }
+    }
+
+    private void openEffectExtractor() {
+        JDesktopPane desktop = getDesktopPane();
+        if (desktop == null) {
+            return;
+        }
+
+        for (JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof EffectExtractor) {
+                try {
+                    if (frame.isIcon())
+                        frame.setIcon(false);
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+                return;
+            }
+        }
+
+        EffectExtractor extractor = new EffectExtractor();
+        desktop.add(extractor);
+        extractor.setLocation(50, 50);
+        extractor.setVisible(true);
+        try {
+            extractor.setSelected(true);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 

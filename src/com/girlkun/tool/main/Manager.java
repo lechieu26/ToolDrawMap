@@ -127,14 +127,34 @@ public class Manager {
       }
    }
 
-   private void loadEffectTemplate() {
+   public void loadEffectTemplate() {
       this.effectTemplates = new ArrayList<>();
 
       try {
-         for (int i = 0; i < 750; i++) {
-            EffectTemplate eff = this.readEff(i);
-            if (eff != null && eff.getSizeFrame() > 0) {
-               this.effectTemplates.add(eff);
+         java.io.File effDir = new java.io.File("data/data/effdata/x1");
+         if (effDir.exists() && effDir.isDirectory()) {
+            java.io.File[] files = effDir.listFiles();
+            if (files != null) {
+               java.util.TreeSet<Integer> idSet = new java.util.TreeSet<>();
+               for (java.io.File f : files) {
+                  try {
+                     int id = Integer.parseInt(f.getName());
+                     idSet.add(id);
+                  } catch (Exception ignored) {}
+               }
+               for (int id : idSet) {
+                  EffectTemplate eff = this.readEff(id);
+                  if (eff != null && eff.getSizeFrame() > 0) {
+                     this.effectTemplates.add(eff);
+                  }
+               }
+            }
+         } else {
+            for (int i = 0; i < 750; i++) {
+               EffectTemplate eff = this.readEff(i);
+               if (eff != null && eff.getSizeFrame() > 0) {
+                  this.effectTemplates.add(eff);
+               }
             }
          }
 

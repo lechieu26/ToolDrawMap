@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 
 public class ShopManagerDAO {
 
@@ -1240,7 +1243,7 @@ public class ShopManagerDAO {
         try {
             Connection conn = getConnection();
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "SELECT id, name, icon_id, head, body, leg FROM item_template WHERE type = 5 ORDER BY name")) {
+                    "SELECT id, name, icon_id, head, body, leg FROM item_template WHERE type = 5 ORDER BY id ASC")) {
                 ResultSet rs = stmt.executeQuery();
                 while (rs.next()) {
                     list.add(new CaiTrangTemplate(
@@ -1328,55 +1331,245 @@ public class ShopManagerDAO {
         return list;
     }
 
+    public boolean isBossTemplateTableExists(Connection conn) {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT 1 FROM boss_template LIMIT 1")) {
+            stmt.executeQuery();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public int getNextBossId() {
+        try {
+            Connection conn = getConnection();
+            if (isBossTemplateTableExists(conn)) {
+                try (PreparedStatement ps = conn.prepareStatement("SELECT MAX(id) as max_id FROM boss_template")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            int maxId = rs.getInt("max_id");
+                            if (!rs.wasNull()) {
+                                return maxId + 1;
+                            }
+                        }
+                    }
+                }
+            } else {
+                try (PreparedStatement ps = conn.prepareStatement("SELECT MIN(boss_id) as min_id FROM boss_config")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            int minId = rs.getInt("min_id");
+                            if (!rs.wasNull() && minId < 0) {
+                                return minId - 1;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 1;
+    }
+
     public List<BossConfig> getAllBossConfigs() {
         List<BossConfig> list = new ArrayList<>();
         try {
             Connection conn = getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_config ORDER BY boss_id, level_index")) {
-                ResultSet rs = stmt.executeQuery();
-                while (rs.next()) {
-                    BossConfig b = new BossConfig();
-                    b.bossId = rs.getInt("boss_id");
-                    b.bossName = rs.getString("boss_name");
-                    b.gender = rs.getByte("gender");
-                    b.outfit = rs.getString("outfit");
-                    b.dame = rs.getLong("dame");
-                    b.hp = rs.getString("hp");
-                    b.mapJoin = rs.getString("map_join");
-                    b.skills = rs.getString("skills");
-                    b.textS = rs.getString("text_s");
-                    b.textM = rs.getString("text_m");
-                    b.textE = rs.getString("text_e");
-                    b.secondsRest = rs.getInt("seconds_rest");
-                    b.appearType = rs.getByte("appear_type");
-                    b.bossesAppearTogether = rs.getString("bosses_appear_together");
-                    b.levelIndex = rs.getByte("level_index");
-                    b.bossType = rs.getString("boss_type");
-                    b.isNotifyDisabled = rs.getBoolean("is_notify_disabled");
-                    b.isZone01SpawnDisabled = rs.getBoolean("is_zone01_spawn_disabled");
-                    b.spawnCount = rs.getInt("spawn_count");
-                    b.maxDamagePerHit = (Long) rs.getObject("max_damage_per_hit");
-                    b.damageDivisor = (Integer) rs.getObject("damage_divisor");
-                    b.damageFlatReduction = (Long) rs.getObject("damage_flat_reduction");
-                    b.dodgeRate = (Integer) rs.getObject("dodge_rate");
-                    b.pierceReverse = rs.getBoolean("pierce_reverse");
-                    b.autoLeaveTimeout = (Long) rs.getObject("auto_leave_timeout");
-                    b.autoLeaveResetOnPlayer = rs.getBoolean("auto_leave_reset_on_player");
-                    b.autoLeaveRandomMin = (Long) rs.getObject("auto_leave_random_min");
-                    b.autoLeaveRandomMax = (Long) rs.getObject("auto_leave_random_max");
-                    b.appendRandomName = rs.getBoolean("append_random_name");
-                    b.doneChatSToAfk = rs.getBoolean("done_chat_s_to_afk");
-                    b.skipNotifyAtLevel = (Integer) rs.getObject("skip_notify_at_level");
-                    b.skipMoveAtLevel = (Integer) rs.getObject("skip_move_at_level");
-                    b.specialAbilities = rs.getString("special_abilities");
-                    b.rewardConfig = rs.getString("reward_config");
-                    b.customClass = rs.getString("custom_class");
-                    b.enabled = rs.getBoolean("enabled");
+            if (isBossTemplateTableExists(conn)) {
+                Map<Integer, BossConfig> map = new LinkedHashMap<>();
+                // 1. boss_template
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_template ORDER BY id ASC");
+                     ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        BossConfig b = new BossConfig();
+                        b.bossId = rs.getInt("id");
+                        b.bossName = rs.getString("name");
+                        b.bossType = rs.getString("type");
+                        b.subType = rs.getString("sub_type");
+                        b.gender = rs.getByte("gender");
+                        b.enabled = rs.getBoolean("enabled");
+                        b.spawnCount = rs.getInt("spawn_count");
+                        b.respawnDelay = rs.getInt("respawn_delay");
+                        b.despawnTimeout = rs.getInt("despawn_timeout");
+                        b.isNotify = rs.getBoolean("is_notify");
+                        b.isZone01SpawnDisabled = rs.getBoolean("is_zone_0_1_disabled");
+                        b.requireTaskId = (Integer) rs.getObject("require_task_id");
+                        b.extraConfig = rs.getString("extra_config");
+                        b.secondsRest = b.respawnDelay;
+                        b.isNotifyDisabled = !b.isNotify;
+                        map.put(b.bossId, b);
+                    }
+                }
+
+                // 2. boss_form
+                Map<Integer, BossFormConfig> formsById = new HashMap<>();
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_form ORDER BY boss_id ASC, form_order ASC");
+                     ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        BossFormConfig form = new BossFormConfig();
+                        form.id = rs.getInt("id");
+                        form.bossId = rs.getInt("boss_id");
+                        form.formOrder = rs.getInt("form_order");
+                        form.name = rs.getString("name");
+                        form.hpMin = rs.getLong("hp_min");
+                        form.hpMax = rs.getLong("hp_max");
+                        form.dame = rs.getInt("dame");
+                        form.outfitHead = rs.getShort("outfit_head");
+                        form.outfitBody = rs.getShort("outfit_body");
+                        form.outfitLeg = rs.getShort("outfit_leg");
+                        form.outfitBag = rs.getShort("outfit_bag");
+                        form.outfitAura = rs.getShort("outfit_aura");
+                        form.outfitEff = rs.getShort("outfit_eff");
+                        form.textStart = rs.getString("text_start");
+                        form.textMid = rs.getString("text_mid");
+                        form.textEnd = rs.getString("text_end");
+
+                        formsById.put(form.id, form);
+                        BossConfig b = map.get(form.bossId);
+                        if (b != null) {
+                            b.forms.add(form);
+                        }
+                    }
+                }
+
+                // 3. boss_skill
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_skill ORDER BY form_id ASC, id ASC");
+                     ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        BossSkillConfig sk = new BossSkillConfig(
+                                rs.getInt("id"),
+                                rs.getInt("form_id"),
+                                rs.getInt("skill_id"),
+                                rs.getInt("skill_level"),
+                                rs.getInt("cooldown")
+                        );
+                        BossFormConfig form = formsById.get(sk.formId);
+                        if (form != null) {
+                            form.skills.add(sk);
+                        }
+                    }
+                }
+
+                // 4. boss_map
+                Map<Integer, List<String>> mapsByBoss = new HashMap<>();
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_map ORDER BY boss_id ASC, id ASC");
+                     ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        int bid = rs.getInt("boss_id");
+                        int mid = rs.getInt("map_id");
+                        mapsByBoss.computeIfAbsent(bid, k -> new ArrayList<>()).add(String.valueOf(mid));
+                    }
+                }
+                for (Map.Entry<Integer, List<String>> entry : mapsByBoss.entrySet()) {
+                    BossConfig b = map.get(entry.getKey());
+                    if (b != null) {
+                        b.mapJoin = String.join(", ", entry.getValue());
+                    }
+                }
+
+                // 5. boss_appear_together
+                Map<Integer, List<String>> togetherByBoss = new HashMap<>();
+                Map<Integer, Integer> parentBySubBoss = new HashMap<>();
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_appear_together ORDER BY boss_id ASC");
+                     ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        int bid = rs.getInt("boss_id");
+                        int sid = rs.getInt("sub_boss_id");
+                        togetherByBoss.computeIfAbsent(bid, k -> new ArrayList<>()).add(String.valueOf(sid));
+                        parentBySubBoss.put(sid, bid);
+                    }
+                }
+                for (Map.Entry<Integer, List<String>> entry : togetherByBoss.entrySet()) {
+                    BossConfig b = map.get(entry.getKey());
+                    if (b != null) {
+                        b.bossesAppearTogether = String.join(", ", entry.getValue());
+                    }
+                }
+                for (Map.Entry<Integer, Integer> entry : parentBySubBoss.entrySet()) {
+                    BossConfig sub = map.get(entry.getKey());
+                    BossConfig parent = map.get(entry.getValue());
+                    if (sub != null) {
+                        sub.parentBossId = entry.getValue();
+                        if (parent != null) {
+                            sub.parentBossName = parent.bossName;
+                        }
+                    }
+                }
+
+                // 6. boss_reward
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_reward ORDER BY boss_id ASC, id ASC");
+                     ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        BossRewardConfig r = new BossRewardConfig(
+                                rs.getInt("id"),
+                                rs.getInt("boss_id"),
+                                rs.getInt("item_id"),
+                                rs.getInt("quantity_min"),
+                                rs.getInt("quantity_max"),
+                                rs.getDouble("rate"),
+                                rs.getString("item_options"),
+                                rs.getInt("event_point"),
+                                rs.getInt("active_point")
+                        );
+                        BossConfig b = map.get(r.bossId);
+                        if (b != null) {
+                            b.rewards.add(r);
+                        }
+                    }
+                }
+
+                // Populate compatibility fields
+                for (BossConfig b : map.values()) {
+                    if (b.forms.isEmpty()) {
+                        BossFormConfig def = new BossFormConfig(0, b.bossName);
+                        b.forms.add(def);
+                    }
+                    BossFormConfig f0 = b.forms.get(0);
+                    b.dame = f0.dame;
+                    b.hp = (f0.hpMin == f0.hpMax) ? String.valueOf(f0.hpMin) : (f0.hpMin + ", " + f0.hpMax);
+                    b.outfit = f0.outfitHead + "," + f0.outfitBody + "," + f0.outfitLeg + "," + f0.outfitBag + "," + f0.outfitAura + "," + f0.outfitEff;
+                    b.textS = f0.textStart;
+                    b.textM = f0.textMid;
+                    b.textE = f0.textEnd;
                     list.add(b);
+                }
+            } else {
+                // Fallback for boss_config
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM boss_config ORDER BY boss_id, level_index")) {
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        BossConfig b = new BossConfig();
+                        b.bossId = rs.getInt("boss_id");
+                        b.bossName = rs.getString("boss_name");
+                        b.gender = rs.getByte("gender");
+                        b.outfit = rs.getString("outfit");
+                        b.dame = rs.getLong("dame");
+                        b.hp = rs.getString("hp");
+                        b.mapJoin = rs.getString("map_join");
+                        b.skills = rs.getString("skills");
+                        b.textS = rs.getString("text_s");
+                        b.textM = rs.getString("text_m");
+                        b.textE = rs.getString("text_e");
+                        b.secondsRest = rs.getInt("seconds_rest");
+                        b.respawnDelay = b.secondsRest;
+                        b.appearType = rs.getByte("appear_type");
+                        b.bossesAppearTogether = rs.getString("bosses_appear_together");
+                        b.levelIndex = rs.getByte("level_index");
+                        b.bossType = rs.getString("boss_type");
+                        b.isNotifyDisabled = rs.getBoolean("is_notify_disabled");
+                        b.isNotify = !b.isNotifyDisabled;
+                        b.isZone01SpawnDisabled = rs.getBoolean("is_zone01_spawn_disabled");
+                        b.spawnCount = rs.getInt("spawn_count");
+                        b.rewardConfig = rs.getString("reward_config");
+                        b.enabled = rs.getBoolean("enabled");
+                        list.add(b);
+                    }
                 }
             }
         } catch (Exception e) {
             System.out.println("Error loading boss configs: " + e.getMessage());
+            e.printStackTrace();
         }
         return list;
     }
@@ -1384,58 +1577,309 @@ public class ShopManagerDAO {
     public void saveBossConfig(BossConfig b) {
         try {
             Connection conn = getConnection();
-            String sql = "REPLACE INTO boss_config (" +
-                    "boss_id, boss_name, gender, outfit, dame, hp, map_join, skills, " +
-                    "text_s, text_m, text_e, seconds_rest, appear_type, bosses_appear_together, " +
-                    "level_index, boss_type, is_notify_disabled, is_zone01_spawn_disabled, " +
-                    "spawn_count, max_damage_per_hit, damage_divisor, damage_flat_reduction, " +
-                    "dodge_rate, pierce_reverse, auto_leave_timeout, auto_leave_reset_on_player, " +
-                    "auto_leave_random_min, auto_leave_random_max, append_random_name, " +
-                    "done_chat_s_to_afk, skip_notify_at_level, skip_move_at_level, " +
-                    "special_abilities, reward_config, custom_class, enabled) VALUES (" +
-                    "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setInt(1, b.bossId);
-                stmt.setString(2, b.bossName);
-                stmt.setByte(3, b.gender);
-                stmt.setString(4, b.outfit);
-                stmt.setLong(5, b.dame);
-                stmt.setString(6, b.hp);
-                stmt.setString(7, b.mapJoin);
-                stmt.setString(8, b.skills);
-                stmt.setString(9, b.textS);
-                stmt.setString(10, b.textM);
-                stmt.setString(11, b.textE);
-                stmt.setInt(12, b.secondsRest);
-                stmt.setByte(13, b.appearType);
-                stmt.setString(14, b.bossesAppearTogether);
-                stmt.setByte(15, b.levelIndex);
-                stmt.setString(16, b.bossType);
-                stmt.setBoolean(17, b.isNotifyDisabled);
-                stmt.setBoolean(18, b.isZone01SpawnDisabled);
-                stmt.setInt(19, b.spawnCount);
-                stmt.setObject(20, b.maxDamagePerHit);
-                stmt.setObject(21, b.damageDivisor);
-                stmt.setObject(22, b.damageFlatReduction);
-                stmt.setObject(23, b.dodgeRate);
-                stmt.setBoolean(24, b.pierceReverse);
-                stmt.setObject(25, b.autoLeaveTimeout);
-                stmt.setBoolean(26, b.autoLeaveResetOnPlayer);
-                stmt.setObject(27, b.autoLeaveRandomMin);
-                stmt.setObject(28, b.autoLeaveRandomMax);
-                stmt.setBoolean(29, b.appendRandomName);
-                stmt.setBoolean(30, b.doneChatSToAfk);
-                stmt.setObject(31, b.skipNotifyAtLevel);
-                stmt.setObject(32, b.skipMoveAtLevel);
-                stmt.setString(33, b.specialAbilities);
-                stmt.setString(34, b.rewardConfig);
-                stmt.setString(35, b.customClass);
-                stmt.setBoolean(36, b.enabled);
-                stmt.executeUpdate();
+            if (isBossTemplateTableExists(conn)) {
+                conn.setAutoCommit(false);
+                try {
+                    // 1. boss_template
+                    String sqlTemplate = "REPLACE INTO boss_template (" +
+                            "id, name, type, sub_type, gender, enabled, spawn_count, " +
+                            "respawn_delay, despawn_timeout, is_notify, is_zone_0_1_disabled, " +
+                            "require_task_id, extra_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    try (PreparedStatement stmt = conn.prepareStatement(sqlTemplate)) {
+                        stmt.setInt(1, b.bossId);
+                        stmt.setString(2, b.bossName);
+                        stmt.setString(3, b.bossType != null ? b.bossType : "NORMAL");
+                        stmt.setString(4, b.subType != null ? b.subType : "DEFAULT");
+                        stmt.setByte(5, b.gender);
+                        stmt.setBoolean(6, b.enabled);
+                        stmt.setInt(7, b.spawnCount > 0 ? b.spawnCount : 1);
+                        stmt.setInt(8, b.respawnDelay > 0 ? b.respawnDelay : 300);
+                        stmt.setInt(9, b.despawnTimeout > 0 ? b.despawnTimeout : 900);
+                        stmt.setBoolean(10, b.isNotify);
+                        stmt.setBoolean(11, b.isZone01SpawnDisabled);
+                        stmt.setObject(12, b.requireTaskId);
+                        stmt.setString(13, b.extraConfig);
+                        stmt.executeUpdate();
+                    }
+
+                    // 2. boss_map
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_map WHERE boss_id = ?")) {
+                        ps.setInt(1, b.bossId);
+                        ps.executeUpdate();
+                    }
+                    if (b.mapJoin != null && !b.mapJoin.trim().isEmpty()) {
+                        String[] parts = b.mapJoin.split("[,;\\s]+");
+                        String sqlMap = "INSERT INTO boss_map (boss_id, map_id, zone_id) VALUES (?, ?, -1)";
+                        for (String p : parts) {
+                            String s = p.trim();
+                            if (!s.isEmpty()) {
+                                try {
+                                    int mapId = Integer.parseInt(s);
+                                    try (PreparedStatement ps = conn.prepareStatement(sqlMap)) {
+                                        ps.setInt(1, b.bossId);
+                                        ps.setInt(2, mapId);
+                                        ps.executeUpdate();
+                                    }
+                                } catch (NumberFormatException ignored) {
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. boss_appear_together
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_appear_together WHERE boss_id = ?")) {
+                        ps.setInt(1, b.bossId);
+                        ps.executeUpdate();
+                    }
+                    if (b.bossesAppearTogether != null && !b.bossesAppearTogether.trim().isEmpty()) {
+                        String[] parts = b.bossesAppearTogether.split("[,;\\s]+");
+                        String sqlTogether = "INSERT IGNORE INTO boss_appear_together (boss_id, sub_boss_id) VALUES (?, ?)";
+                        Set<Integer> validIds = new HashSet<>();
+                        try (PreparedStatement psCheck = conn.prepareStatement("SELECT id FROM boss_template")) {
+                            try (ResultSet rsCheck = psCheck.executeQuery()) {
+                                while (rsCheck.next()) validIds.add(rsCheck.getInt("id"));
+                            }
+                        }
+                        Set<Integer> added = new HashSet<>();
+                        for (String p : parts) {
+                            String s = p.trim();
+                            if (!s.isEmpty()) {
+                                try {
+                                    int subId = Integer.parseInt(s);
+                                    if (validIds.contains(subId) && subId != b.bossId && !added.contains(subId)) {
+                                        added.add(subId);
+                                        try (PreparedStatement ps = conn.prepareStatement(sqlTogether)) {
+                                            ps.setInt(1, b.bossId);
+                                            ps.setInt(2, subId);
+                                            ps.executeUpdate();
+                                        }
+                                    }
+                                } catch (NumberFormatException ignored) {
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. boss_form & boss_skill
+                    List<Integer> oldFormIds = new ArrayList<>();
+                    try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM boss_form WHERE boss_id = ?")) {
+                        ps.setInt(1, b.bossId);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            while (rs.next()) {
+                                oldFormIds.add(rs.getInt("id"));
+                            }
+                        }
+                    }
+                    for (int fid : oldFormIds) {
+                        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_skill WHERE form_id = ?")) {
+                            ps.setInt(1, fid);
+                            ps.executeUpdate();
+                        }
+                    }
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_form WHERE boss_id = ?")) {
+                        ps.setInt(1, b.bossId);
+                        ps.executeUpdate();
+                    }
+
+                    if (b.forms != null && !b.forms.isEmpty()) {
+                        String sqlForm = "INSERT INTO boss_form (boss_id, form_order, name, hp_min, hp_max, dame, " +
+                                "outfit_head, outfit_body, outfit_leg, outfit_bag, outfit_aura, outfit_eff, " +
+                                "text_start, text_mid, text_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        String sqlSkill = "INSERT INTO boss_skill (form_id, skill_id, skill_level, cooldown) VALUES (?, ?, ?, ?)";
+
+                        for (int i = 0; i < b.forms.size(); i++) {
+                            BossFormConfig form = b.forms.get(i);
+                            form.bossId = b.bossId;
+                            form.formOrder = i;
+
+                            try (PreparedStatement ps = conn.prepareStatement(sqlForm, Statement.RETURN_GENERATED_KEYS)) {
+                                ps.setInt(1, b.bossId);
+                                ps.setInt(2, i);
+                                ps.setString(3, (form.name != null && !form.name.trim().isEmpty()) ? form.name : b.bossName);
+                                ps.setLong(4, form.hpMin);
+                                ps.setLong(5, form.hpMax >= form.hpMin ? form.hpMax : form.hpMin);
+                                ps.setInt(6, (int) form.dame);
+                                ps.setShort(7, form.outfitHead);
+                                ps.setShort(8, form.outfitBody);
+                                ps.setShort(9, form.outfitLeg);
+                                ps.setShort(10, form.outfitBag);
+                                ps.setShort(11, form.outfitAura);
+                                ps.setShort(12, form.outfitEff);
+                                ps.setString(13, form.textStart != null ? form.textStart : "[]");
+                                ps.setString(14, form.textMid != null ? form.textMid : "[]");
+                                ps.setString(15, form.textEnd != null ? form.textEnd : "[]");
+                                ps.executeUpdate();
+
+                                try (ResultSet rsKey = ps.getGeneratedKeys()) {
+                                    if (rsKey.next()) {
+                                        int formId = rsKey.getInt(1);
+                                        form.id = formId;
+
+                                        if (form.skills != null) {
+                                            for (BossSkillConfig sk : form.skills) {
+                                                try (PreparedStatement psk = conn.prepareStatement(sqlSkill)) {
+                                                    psk.setInt(1, formId);
+                                                    psk.setInt(2, sk.skillId);
+                                                    psk.setInt(3, sk.skillLevel);
+                                                    psk.setInt(4, sk.cooldown);
+                                                    psk.executeUpdate();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. boss_reward
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_reward WHERE boss_id = ?")) {
+                        ps.setInt(1, b.bossId);
+                        ps.executeUpdate();
+                    }
+                    if (b.rewards != null && !b.rewards.isEmpty()) {
+                        String sqlReward = "INSERT INTO boss_reward (boss_id, item_id, quantity_min, quantity_max, rate, item_options, event_point, active_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                        for (BossRewardConfig r : b.rewards) {
+                            try (PreparedStatement ps = conn.prepareStatement(sqlReward)) {
+                                ps.setInt(1, b.bossId);
+                                ps.setInt(2, r.itemId);
+                                ps.setInt(3, r.quantityMin > 0 ? r.quantityMin : 1);
+                                ps.setInt(4, r.quantityMax >= r.quantityMin ? r.quantityMax : r.quantityMin);
+                                ps.setDouble(5, r.rate > 0 ? r.rate : 100.0);
+                                ps.setString(6, r.itemOptions != null ? r.itemOptions : "[]");
+                                ps.setInt(7, r.eventPoint);
+                                ps.setInt(8, r.activePoint);
+                                ps.executeUpdate();
+                            }
+                        }
+                    }
+
+                    conn.commit();
+                } catch (Exception ex) {
+                    conn.rollback();
+                    throw ex;
+                } finally {
+                    conn.setAutoCommit(true);
+                }
+            } else {
+                // Fallback for boss_config
+                String sql = "REPLACE INTO boss_config (" +
+                        "boss_id, boss_name, gender, outfit, dame, hp, map_join, skills, " +
+                        "text_s, text_m, text_e, seconds_rest, appear_type, bosses_appear_together, " +
+                        "level_index, boss_type, is_notify_disabled, is_zone01_spawn_disabled, " +
+                        "spawn_count, max_damage_per_hit, damage_divisor, damage_flat_reduction, " +
+                        "dodge_rate, pierce_reverse, auto_leave_timeout, auto_leave_reset_on_player, " +
+                        "auto_leave_random_min, auto_leave_random_max, append_random_name, " +
+                        "done_chat_s_to_afk, skip_notify_at_level, skip_move_at_level, " +
+                        "special_abilities, reward_config, custom_class, enabled) VALUES (" +
+                        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setInt(1, b.bossId);
+                    stmt.setString(2, b.bossName);
+                    stmt.setByte(3, b.gender);
+                    stmt.setString(4, b.outfit);
+                    stmt.setLong(5, b.dame);
+                    stmt.setString(6, b.hp);
+                    stmt.setString(7, b.mapJoin);
+                    stmt.setString(8, b.skills);
+                    stmt.setString(9, b.textS);
+                    stmt.setString(10, b.textM);
+                    stmt.setString(11, b.textE);
+                    stmt.setInt(12, b.respawnDelay > 0 ? b.respawnDelay : b.secondsRest);
+                    stmt.setByte(13, b.appearType);
+                    stmt.setString(14, b.bossesAppearTogether);
+                    stmt.setByte(15, b.levelIndex);
+                    stmt.setString(16, b.bossType);
+                    stmt.setBoolean(17, !b.isNotify);
+                    stmt.setBoolean(18, b.isZone01SpawnDisabled);
+                    stmt.setInt(19, b.spawnCount);
+                    stmt.setObject(20, b.maxDamagePerHit);
+                    stmt.setObject(21, b.damageDivisor);
+                    stmt.setObject(22, b.damageFlatReduction);
+                    stmt.setObject(23, b.dodgeRate);
+                    stmt.setBoolean(24, b.pierceReverse);
+                    stmt.setObject(25, b.autoLeaveTimeout);
+                    stmt.setBoolean(26, b.autoLeaveResetOnPlayer);
+                    stmt.setObject(27, b.autoLeaveRandomMin);
+                    stmt.setObject(28, b.autoLeaveRandomMax);
+                    stmt.setBoolean(29, b.appendRandomName);
+                    stmt.setBoolean(30, b.doneChatSToAfk);
+                    stmt.setObject(31, b.skipNotifyAtLevel);
+                    stmt.setObject(32, b.skipMoveAtLevel);
+                    stmt.setString(33, b.specialAbilities);
+                    stmt.setString(34, b.rewardConfig);
+                    stmt.setString(35, b.customClass);
+                    stmt.setBoolean(36, b.enabled);
+                    stmt.executeUpdate();
+                }
             }
         } catch (Exception e) {
             System.out.println("Error saving boss config: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void deleteBoss(int bossId) {
+        try {
+            Connection conn = getConnection();
+            if (isBossTemplateTableExists(conn)) {
+                conn.setAutoCommit(false);
+                try {
+                    // 1. Delete skills
+                    List<Integer> formIds = new ArrayList<>();
+                    try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM boss_form WHERE boss_id = ?")) {
+                        ps.setInt(1, bossId);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            while (rs.next()) formIds.add(rs.getInt("id"));
+                        }
+                    }
+                    for (int fid : formIds) {
+                        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_skill WHERE form_id = ?")) {
+                            ps.setInt(1, fid);
+                            ps.executeUpdate();
+                        }
+                    }
+                    // 2. Delete forms
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_form WHERE boss_id = ?")) {
+                        ps.setInt(1, bossId);
+                        ps.executeUpdate();
+                    }
+                    // 3. Delete maps
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_map WHERE boss_id = ?")) {
+                        ps.setInt(1, bossId);
+                        ps.executeUpdate();
+                    }
+                    // 4. Delete appear together
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_appear_together WHERE boss_id = ? OR sub_boss_id = ?")) {
+                        ps.setInt(1, bossId);
+                        ps.setInt(2, bossId);
+                        ps.executeUpdate();
+                    }
+                    // 5. Delete rewards
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_reward WHERE boss_id = ?")) {
+                        ps.setInt(1, bossId);
+                        ps.executeUpdate();
+                    }
+                    // 6. Delete template
+                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_template WHERE id = ?")) {
+                        ps.setInt(1, bossId);
+                        ps.executeUpdate();
+                    }
+                    conn.commit();
+                } catch (Exception ex) {
+                    conn.rollback();
+                    throw ex;
+                } finally {
+                    conn.setAutoCommit(true);
+                }
+            } else {
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_config WHERE boss_id = ?")) {
+                    ps.setInt(1, bossId);
+                    ps.executeUpdate();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error deleting boss: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -232,93 +232,187 @@ public class BGItemList extends JFrame {
          this.bgItemL2.remove(this.drawMapScr.bgChose);
          this.bgItemL3.remove(this.drawMapScr.bgChose);
          this.bgItemL4.remove(this.drawMapScr.bgChose);
+         this.drawMapScr.bgChose = null;
       }
 
       this.fillToTable();
    }
 
+   private int currentArrowKey = -1;
+   private long arrowPressStartTime = 0;
+
+   private int getArrowStep(int keyCode) {
+      long now = System.currentTimeMillis();
+      if (keyCode != this.currentArrowKey) {
+         this.currentArrowKey = keyCode;
+         this.arrowPressStartTime = now;
+         return 1;
+      }
+      long elapsed = now - this.arrowPressStartTime;
+      if (elapsed < 300) {
+         return 1;
+      } else if (elapsed < 700) {
+         return 2;
+      } else if (elapsed < 1200) {
+         return 4;
+      } else if (elapsed < 1800) {
+         return 8;
+      } else if (elapsed < 2500) {
+         return 12;
+      } else {
+         return 16;
+      }
+   }
+
+   private void handleTableKey(JTable table, DefaultTableModel model, List<BgItemMap> list, int layerIndex, KeyEvent evt) {
+      int index = table.getSelectedRow();
+      if (index == -1 || index >= list.size()) {
+         return;
+      }
+      BgItemMap bg = list.get(index);
+      int keyCode = evt.getKeyCode();
+      int dx = 0;
+      int dy = 0;
+      if (keyCode == KeyEvent.VK_LEFT) {
+         dx = -this.getArrowStep(keyCode);
+      } else if (keyCode == KeyEvent.VK_RIGHT) {
+         dx = this.getArrowStep(keyCode);
+      } else if (keyCode == KeyEvent.VK_UP) {
+         dy = -this.getArrowStep(keyCode);
+      } else if (keyCode == KeyEvent.VK_DOWN) {
+         dy = this.getArrowStep(keyCode);
+      }
+
+      if (dx != 0 || dy != 0) {
+         bg.setX(bg.getX() + dx);
+         bg.setY(bg.getY() + dy);
+         model.setValueAt(bg.getX(), index, 2);
+         model.setValueAt(bg.getY(), index, 3);
+         this.drawMapScr.setBGItemMapChoose(bg, layerIndex);
+         evt.consume();
+      } else {
+         this.drawMapScr.setBGItemMapChoose(bg, layerIndex);
+      }
+   }
+
+   private void handleTableKeyReleased(JTable table, List<BgItemMap> list, int layerIndex, KeyEvent evt) {
+      if (evt.getKeyCode() == this.currentArrowKey) {
+         this.currentArrowKey = -1;
+         this.arrowPressStartTime = 0;
+      }
+      int index = table.getSelectedRow();
+      if (index != -1 && index < list.size()) {
+         this.drawMapScr.setBGItemMapChoose(list.get(index), layerIndex);
+      }
+   }
+
+   public void updateSelectedPosition(BgItemMap bg) {
+      if (bg == null) {
+         return;
+      }
+      int r1 = this.tbl1.getSelectedRow();
+      if (r1 != -1 && r1 < this.bgItemL1.size() && this.bgItemL1.get(r1) == bg) {
+         this.model1.setValueAt(bg.getX(), r1, 2);
+         this.model1.setValueAt(bg.getY(), r1, 3);
+         return;
+      }
+      int r2 = this.tbl2.getSelectedRow();
+      if (r2 != -1 && r2 < this.bgItemL2.size() && this.bgItemL2.get(r2) == bg) {
+         this.model2.setValueAt(bg.getX(), r2, 2);
+         this.model2.setValueAt(bg.getY(), r2, 3);
+         return;
+      }
+      int r3 = this.tbl3.getSelectedRow();
+      if (r3 != -1 && r3 < this.bgItemL3.size() && this.bgItemL3.get(r3) == bg) {
+         this.model3.setValueAt(bg.getX(), r3, 2);
+         this.model3.setValueAt(bg.getY(), r3, 3);
+         return;
+      }
+      int r4 = this.tbl4.getSelectedRow();
+      if (r4 != -1 && r4 < this.bgItemL4.size() && this.bgItemL4.get(r4) == bg) {
+         this.model4.setValueAt(bg.getX(), r4, 2);
+         this.model4.setValueAt(bg.getY(), r4, 3);
+         return;
+      }
+   }
+
+   public void clearTableSelection() {
+      if (this.tbl1 != null) this.tbl1.clearSelection();
+      if (this.tbl2 != null) this.tbl2.clearSelection();
+      if (this.tbl3 != null) this.tbl3.clearSelection();
+      if (this.tbl4 != null) this.tbl4.clearSelection();
+   }
+
    private void tbl1MouseClicked(MouseEvent evt) {
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl1.getSelectedRow();
-      if (index != -1) {
+      if (index != -1 && index < this.bgItemL1.size()) {
          this.drawMapScr.setBGItemMapChoose(this.bgItemL1.get(index), 0);
       }
    }
 
    private void tbl1KeyPressed(KeyEvent evt) {
-      int index = this.tbl1.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL1.get(index), 0);
-      }
+      this.handleTableKey(this.tbl1, this.model1, this.bgItemL1, 0, evt);
    }
 
    private void tbl1KeyReleased(KeyEvent evt) {
-      int index = this.tbl1.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL1.get(index), 0);
-      }
+      this.handleTableKeyReleased(this.tbl1, this.bgItemL1, 0, evt);
    }
 
    private void tbl2MouseClicked(MouseEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl3.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl2.getSelectedRow();
-      if (index != -1) {
+      if (index != -1 && index < this.bgItemL2.size()) {
          this.drawMapScr.setBGItemMapChoose(this.bgItemL2.get(index), 2);
       }
    }
 
    private void tbl2KeyPressed(KeyEvent evt) {
-      int index = this.tbl2.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL2.get(index), 2);
-      }
+      this.handleTableKey(this.tbl2, this.model2, this.bgItemL2, 2, evt);
    }
 
    private void tbl2KeyReleased(KeyEvent evt) {
-      int index = this.tbl2.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL2.get(index), 2);
-      }
+      this.handleTableKeyReleased(this.tbl2, this.bgItemL2, 2, evt);
    }
 
    private void tbl3MouseClicked(MouseEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl4.clearSelection();
       int index = this.tbl3.getSelectedRow();
-      if (index != -1) {
+      if (index != -1 && index < this.bgItemL3.size()) {
          this.drawMapScr.setBGItemMapChoose(this.bgItemL3.get(index), 6);
       }
    }
 
    private void tbl3KeyPressed(KeyEvent evt) {
-      int index = this.tbl3.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL3.get(index), 6);
-      }
+      this.handleTableKey(this.tbl3, this.model3, this.bgItemL3, 6, evt);
    }
 
    private void tbl3KeyReleased(KeyEvent evt) {
-      int index = this.tbl3.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL3.get(index), 6);
-      }
+      this.handleTableKeyReleased(this.tbl3, this.bgItemL3, 6, evt);
    }
 
    private void tbl4MouseClicked(MouseEvent evt) {
+      this.tbl1.clearSelection();
+      this.tbl2.clearSelection();
+      this.tbl3.clearSelection();
       int index = this.tbl4.getSelectedRow();
-      if (index != -1) {
+      if (index != -1 && index < this.bgItemL4.size()) {
          this.drawMapScr.setBGItemMapChoose(this.bgItemL4.get(index), 7);
       }
    }
 
    private void tbl4KeyPressed(KeyEvent evt) {
-      int index = this.tbl4.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL4.get(index), 7);
-      }
+      this.handleTableKey(this.tbl4, this.model4, this.bgItemL4, 7, evt);
    }
 
    private void tbl4KeyReleased(KeyEvent evt) {
-      int index = this.tbl4.getSelectedRow();
-      if (index != -1) {
-         this.drawMapScr.setBGItemMapChoose(this.bgItemL4.get(index), 7);
-      }
+      this.handleTableKeyReleased(this.tbl4, this.bgItemL4, 7, evt);
    }
 
    private void button2ActionPerformed(ActionEvent evt) {
@@ -326,6 +420,8 @@ public class BGItemList extends JFrame {
       this.bgItemL2.clear();
       this.bgItemL3.clear();
       this.bgItemL4.clear();
+      this.drawMapScr.bgChose = null;
+      this.fillToTable();
    }
 
    public void fillToTable() {

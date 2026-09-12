@@ -102,8 +102,8 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    private TilesetType tilesetTypeData;
    private int tileId;
    private DrawMapScr.Camera camTileSet = new DrawMapScr.Camera();
-   private BGItemTable tableBGITEM;
-   private BGItemList bGItemList;
+   public BGItemTable tableBGITEM;
+   public BGItemList bGItemList;
    private NpcTable npcTable;
    private NpcList npcList;
    private MobTable mobTable;
@@ -130,6 +130,10 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    private int[][] indexTileChoseBefore;
    private boolean holdE;
    private boolean holdR;
+   private boolean isDraggingBg = false;
+   private int[] dragBgOffset = new int[2];
+   private int currentArrowKey = -1;
+   private long arrowPressStartTime = 0;
    public List<Layer> layers = new ArrayList<>();
    private DefaultTableModel model;
    public int indexLayer = -1;
@@ -1152,6 +1156,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
    private void choseLayer() {
       try {
+         this.unselectBgItem();
          this.indexLayer = this.tblListLayer.getSelectedRow();
          if (this.indexLayer != -1) {
             boolean chk = false;
@@ -1314,20 +1319,23 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          int x = dis.readShort();
          int y = dis.readShort();
          BgItemTemplate temp = Manager.gI().getBgItemTemplates().get(id);
-         switch (temp.getLayer()) {
-            case 1:
-               this.bgItemL1.add(new BgItemMap(temp, x * 24, y * 24));
-               break;
-            case 2:
-               this.bgItemL2.add(new BgItemMap(temp, x * 24, y * 24));
-               break;
-            case 3:
-               this.bgItemL3.add(new BgItemMap(temp, x * 24, y * 24));
-               break;
-            case 4:
-               this.bgItemL4.add(new BgItemMap(temp, x * 24, y * 24));
+         if (temp != null) {
+            switch (temp.getLayer()) {
+               case 1:
+                  this.bgItemL1.add(new BgItemMap(temp, x * 24, y * 24));
+                  break;
+               case 2:
+                  this.bgItemL2.add(new BgItemMap(temp, x * 24, y * 24));
+                  break;
+               case 3:
+                  this.bgItemL3.add(new BgItemMap(temp, x * 24, y * 24));
+                  break;
+               case 4:
+                  this.bgItemL4.add(new BgItemMap(temp, x * 24, y * 24));
+            }
          }
       }
+      dis.close();
 
       if (this.bGItemList != null) {
          this.bGItemList.fillToTable();
@@ -1366,28 +1374,30 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
 
                for (BgItemMap bg : this.bgItemL1) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
                for (BgItemMap bg : this.bgItemL2) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
                for (BgItemMap bg : this.bgItemL3) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
                for (BgItemMap bg : this.bgItemL4) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
+               dos.flush();
+               dos.close();
                NotifyUtil.showMessageDialog(Main.I, "Lưu background item thành công!");
             } catch (Exception var6) {
             }
@@ -2290,10 +2300,53 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
       }
    }
 
+   private int getArrowStep(int keyCode) {
+      long now = System.currentTimeMillis();
+      if (keyCode != this.currentArrowKey) {
+         this.currentArrowKey = keyCode;
+         this.arrowPressStartTime = now;
+         return 1;
+      }
+      long elapsed = now - this.arrowPressStartTime;
+      if (elapsed < 300) {
+         return 1;
+      } else if (elapsed < 700) {
+         return 2;
+      } else if (elapsed < 1200) {
+         return 4;
+      } else if (elapsed < 1800) {
+         return 8;
+      } else if (elapsed < 2500) {
+         return 12;
+      } else {
+         return 16;
+      }
+   }
+
    private void mousePress(MouseEvent e) {
       if (e.getButton() == 1) {
          this.holdLeftMouse = true;
-         this.putItem(e.getX() - this.camera.camX, e.getY() - this.camera.camY);
+         int mapClickX = e.getX() - this.camera.camX;
+         int mapClickY = e.getY() - this.camera.camY;
+
+         if (this.bgChose != null && this.bgChose.getTemp() != null) {
+            BufferedImage img = this.bgChose.getTemp().getImage();
+            if (img != null) {
+               int drawX = this.bgChose.getX() + this.bgChose.getTemp().getDx()
+                     - (this.is3D && this.bgChose.getTemp().getLayer() == 4 ? this.camera.camX / 10 : 0);
+               int drawY = this.bgChose.getY() + this.bgChose.getTemp().getDy();
+               if (mapClickX >= drawX && mapClickX <= drawX + img.getWidth()
+                     && mapClickY >= drawY && mapClickY <= drawY + img.getHeight()) {
+                  this.isDraggingBg = true;
+                  this.dragBgOffset[0] = mapClickX - this.bgChose.getX();
+                  this.dragBgOffset[1] = mapClickY - this.bgChose.getY();
+                  return;
+               }
+            }
+         }
+
+         this.isDraggingBg = false;
+         this.putItem(mapClickX, mapClickY);
       } else if (e.getButton() == 2) {
          this.anchorCopy[0] = e.getX();
          this.anchorCopy[1] = e.getY();
@@ -2309,6 +2362,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    private void mouseRelease(MouseEvent e) {
       if (e.getButton() == 1) {
          this.holdLeftMouse = false;
+         this.isDraggingBg = false;
       } else if (e.getButton() == 2) {
          this.copyTilesChose = false;
          if (!this.holdR) {
@@ -2369,7 +2423,17 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
             DrawMapScr.this.mouseAxis[0] = e.getX();
             DrawMapScr.this.mouseAxis[1] = e.getY();
             DrawMapScr.this.moveCamera(e);
-            if (DrawMapScr.this.holdLeftMouse && DrawMapScr.this.indexLayer == 1) {
+            if (DrawMapScr.this.isDraggingBg && DrawMapScr.this.bgChose != null) {
+               int curMapX = e.getX() - DrawMapScr.this.camera.camX;
+               int curMapY = e.getY() - DrawMapScr.this.camera.camY;
+               int newX = curMapX - DrawMapScr.this.dragBgOffset[0];
+               int newY = curMapY - DrawMapScr.this.dragBgOffset[1];
+               DrawMapScr.this.bgChose.setX(newX);
+               DrawMapScr.this.bgChose.setY(newY);
+               if (DrawMapScr.this.bGItemList != null) {
+                  DrawMapScr.this.bGItemList.updateSelectedPosition(DrawMapScr.this.bgChose);
+               }
+            } else if (DrawMapScr.this.holdLeftMouse && DrawMapScr.this.indexLayer == 1) {
                DrawMapScr.this.putItem(e.getX() - DrawMapScr.this.camera.camX, e.getY() - DrawMapScr.this.camera.camY);
             }
          }
@@ -2417,6 +2481,9 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
             this.setCursor(new Cursor(13));
             this.holdKeyAlt = true;
             break;
+         case 27:
+            this.unselectBgItem();
+            break;
          case 32:
             if (!this.holdSpace) {
                this.holdSpace = true;
@@ -2424,6 +2491,42 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
                this.anchorCamera[1] = this.mouseAxis[1];
                this.moveCamera = true;
                this.setCursor(new Cursor(13));
+            }
+            break;
+         case 37:
+            if (this.bgChose != null) {
+               int step = this.getArrowStep(37);
+               this.bgChose.setX(this.bgChose.getX() - step);
+               if (this.bGItemList != null) {
+                  this.bGItemList.updateSelectedPosition(this.bgChose);
+               }
+            }
+            break;
+         case 38:
+            if (this.bgChose != null) {
+               int step = this.getArrowStep(38);
+               this.bgChose.setY(this.bgChose.getY() - step);
+               if (this.bGItemList != null) {
+                  this.bGItemList.updateSelectedPosition(this.bgChose);
+               }
+            }
+            break;
+         case 39:
+            if (this.bgChose != null) {
+               int step = this.getArrowStep(39);
+               this.bgChose.setX(this.bgChose.getX() + step);
+               if (this.bGItemList != null) {
+                  this.bGItemList.updateSelectedPosition(this.bgChose);
+               }
+            }
+            break;
+         case 40:
+            if (this.bgChose != null) {
+               int step = this.getArrowStep(40);
+               this.bgChose.setY(this.bgChose.getY() + step);
+               if (this.bGItemList != null) {
+                  this.bGItemList.updateSelectedPosition(this.bgChose);
+               }
             }
             break;
          case 66:
@@ -2462,6 +2565,15 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
             this.holdSpace = false;
             this.moveCamera = false;
             this.setCursor(new Cursor(0));
+            break;
+         case 37:
+         case 38:
+         case 39:
+         case 40:
+            if (e.getKeyCode() == this.currentArrowKey) {
+               this.currentArrowKey = -1;
+               this.arrowPressStartTime = 0;
+            }
             break;
          case 69:
             if (this.holdE) {
@@ -2532,9 +2644,28 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
       }
    }
 
-   public void setEffectMapChoes(EffectMap eff) {
-      this.effChose = null;
+   public void unselectBgItem() {
       this.bgChose = null;
+      this.isDraggingBg = false;
+      if (this.bGItemList != null) {
+         this.bGItemList.clearTableSelection();
+      }
+   }
+
+   public void unselectBgItemTemplate() {
+      this.bgItemChose1 = null;
+      this.bgItemChose2 = null;
+      this.bgItemChose3 = null;
+      this.bgItemChose4 = null;
+      if (this.tableBGITEM != null) {
+         this.tableBGITEM.clearTableSelection();
+      }
+   }
+
+   public void setEffectMapChoes(EffectMap eff) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
+      this.effChose = null;
       this.mobMapChose = null;
       this.npcMapChose = null;
       this.wpChose = null;
@@ -2546,8 +2677,9 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    }
 
    public void setMobChose(MobMap mob) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
       this.effChose = null;
-      this.bgChose = null;
       this.mobMapChose = null;
       this.npcMapChose = null;
       this.wpChose = null;
@@ -2559,6 +2691,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    }
 
    public void setBGItemMapChoose(BgItemMap bg, int indexLayer) {
+      this.unselectBgItemTemplate();
       this.effChose = null;
       this.bgChose = null;
       this.mobMapChose = null;
@@ -2567,13 +2700,17 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
       this.bgChose = bg;
       this.indexLayer = indexLayer;
       this.tblListLayer.setRowSelectionInterval(this.indexLayer, this.indexLayer);
-      this.camera.camX = -bg.getX() + this.camera.width / 2;
-      this.camera.camY = -bg.getY() + this.camera.height / 2;
+      if (bg != null) {
+         this.camera.camX = -bg.getX() + this.camera.width / 2;
+         this.camera.camY = -bg.getY() + this.camera.height / 2;
+         this.lockCamera();
+      }
    }
 
    public void setNpcMapChose(NpcMap npc) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
       this.effChose = null;
-      this.bgChose = null;
       this.mobMapChose = null;
       this.npcMapChose = null;
       this.wpChose = null;
@@ -2585,8 +2722,9 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    }
 
    public void setWaypointChose(Waypoint wp) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
       this.effChose = null;
-      this.bgChose = null;
       this.mobMapChose = null;
       this.npcMapChose = null;
       this.wpChose = null;
@@ -2598,24 +2736,35 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    }
 
    public void setNpcTemplateChoose(NpcTemplate npc) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
       this.npcChoose = npc;
       this.indexLayer = 4;
       this.tblListLayer.setRowSelectionInterval(this.indexLayer, this.indexLayer);
    }
 
    public void setMobtemplateChoose(MobTemplate mob) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
       this.mobChose = mob;
       this.indexLayer = 5;
       this.tblListLayer.setRowSelectionInterval(this.indexLayer, this.indexLayer);
    }
 
    public void setEffectTemplateChose(EffectTemplate eff) {
+      this.unselectBgItem();
+      this.unselectBgItemTemplate();
       this.effTempChose = eff;
       this.indexLayer = 8;
       this.tblListLayer.setRowSelectionInterval(this.indexLayer, this.indexLayer);
    }
 
    public void setBGItemTemplateChoose(BgItemTemplate bgItemChose, int layer) {
+      this.unselectBgItem();
+      this.bgItemChose1 = null;
+      this.bgItemChose2 = null;
+      this.bgItemChose3 = null;
+      this.bgItemChose4 = null;
       switch (layer) {
          case 1:
             this.bgItemChose1 = bgItemChose;
@@ -2638,6 +2787,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
    }
 
    public void setTileChose(BufferedImage[][] tileChose, int[][] indexTileChose) {
+      this.unselectBgItem();
       this.tilesChose = tileChose;
       this.indexTilesChose = indexTileChose;
       this.indexLayer = 1;
@@ -2993,27 +3143,28 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
                dos.writeShort(n);
                for (BgItemMap bg : this.bgItemL1) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
                for (BgItemMap bg : this.bgItemL2) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
                for (BgItemMap bg : this.bgItemL3) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
 
                for (BgItemMap bg : this.bgItemL4) {
                   dos.writeShort(bg.getTemp().getId());
-                  dos.writeShort(bg.getX() / 24);
-                  dos.writeShort(bg.getY() / 24);
+                  dos.writeShort(Math.round(bg.getX() / 24.0f));
+                  dos.writeShort(Math.round(bg.getY() / 24.0f));
                }
+               dos.flush();
                dos.close();
             }
 

@@ -6,9 +6,10 @@ import com.girlkun.tool.screens.draw_map_scr.models.BgItemMap;
 import com.girlkun.tool.utils.DrawUtil;
 import com.girlkun.tool.utils.Util;
 import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.awt.image.WritableRaster;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,10 +48,16 @@ public class BgItemLayer implements Layer {
    }
 
    public void putBgItem(BgItemTemplate temp, int x, int y) {
-      x = x / 24 * 24;
-      y = y / 24 * 24;
-      if (x >= 0 && y >= 0 && x < this.image.getWidth() && y < this.image.getHeight()) {
-         this.bgItemMaps.add(0, new BgItemMap(temp, x, y));
+      if (temp != null) {
+         x = x / 24 * 24;
+         y = y / 24 * 24;
+         if (x >= 0 && y >= 0 && x < this.image.getWidth() && y < this.image.getHeight()) {
+            BgItemMap newBg = new BgItemMap(temp, x, y);
+            this.bgItemMaps.add(newBg);
+            if (this.drawMapScr.bGItemList != null) {
+               this.drawMapScr.bGItemList.fillToTable();
+            }
+         }
       }
    }
 
@@ -64,26 +71,17 @@ public class BgItemLayer implements Layer {
             for (BgItemMap bgItemMap : this.bgItemMaps) {
                if (bgItemMap != null) {
                   bgItemMap.draw(g, this.drawMapScr);
-                  if (this.drawMapScr.bgChose != null && this.drawMapScr.bgChose.equals(bgItemMap)) {
+                  if (this.drawMapScr.bgChose != null && (this.drawMapScr.bgChose == bgItemMap || this.drawMapScr.bgChose.equals(bgItemMap))) {
                      try {
-                        BufferedImage img = Util.getBgImageById(bgItemMap.getTemp().getImageId(), 1);
-                        BufferedImage i = new BufferedImage(img.getWidth(), img.getHeight(), 2);
-                        Graphics2D gi = (Graphics2D) i.getGraphics();
-                        gi.drawImage(img, 0, 0, null);
-                        WritableRaster raster = i.getRaster();
-
-                        for (int xx = 0; xx < i.getWidth(); xx++) {
-                           for (int yy = 0; yy < i.getHeight(); yy++) {
-                              int[] pixels = raster.getPixel(xx, yy, (int[]) null);
-                              pixels[0] = 255;
-                              pixels[1] = 0;
-                              pixels[2] = 0;
-                              raster.setPixel(xx, yy, pixels);
-                           }
+                        BufferedImage img = bgItemMap.getTemp() != null ? bgItemMap.getTemp().getImage() : null;
+                        if (img != null) {
+                           int drawX = bgItemMap.getX() + bgItemMap.getTemp().getDx()
+                                 - (this.drawMapScr.is3D && bgItemMap.getTemp().getLayer() == 4 ? this.drawMapScr.camera.camX / 10 : 0);
+                           int drawY = bgItemMap.getY() + bgItemMap.getTemp().getDy();
+                           g.setColor(Color.RED);
+                           g.setStroke(new BasicStroke(2.0F));
+                           g.drawRect(drawX, drawY, img.getWidth(), img.getHeight());
                         }
-
-                        g.drawImage(i, bgItemMap.getX() + bgItemMap.getTemp().getDx(),
-                              bgItemMap.getY() + bgItemMap.getTemp().getDy(), null);
                      } catch (Exception var11) {
                         Logger.getLogger(BgItemLayer.class.getName()).log(Level.SEVERE, null, var11);
                      }

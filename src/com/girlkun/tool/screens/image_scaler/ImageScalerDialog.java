@@ -42,6 +42,7 @@ public class ImageScalerDialog extends JInternalFrame {
     private RenameSpritesPanel renameSpritesPanel;
     private SpriteCutterPanel spriteCutterPanel;
     private ExtensionConverterPanel extensionConverterPanel;
+    private CutMapPanel cutMapPanel;
 
     // Data
     private List<File> selectedImages = new ArrayList<>();
@@ -77,6 +78,10 @@ public class ImageScalerDialog extends JInternalFrame {
         // Tab 4: Format Converter
         extensionConverterPanel = new ExtensionConverterPanel();
         tabbedPane.addTab("Format Converter", extensionConverterPanel);
+        
+        // Tab 5: Cut Map
+        cutMapPanel = new CutMapPanel();
+        tabbedPane.addTab("Cut Map", cutMapPanel);
         
         tabbedPane.setBackground(BG_COLOR);
         tabbedPane.setForeground(TEXT_COLOR);
