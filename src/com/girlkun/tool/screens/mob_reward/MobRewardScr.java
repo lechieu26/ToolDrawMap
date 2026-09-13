@@ -21,6 +21,8 @@ import java.util.List;
 public class MobRewardScr extends JInternalFrame {
 
     private MobRewardDAO dao;
+    private final java.util.List<JButton> rewardWriteButtons = new java.util.ArrayList<>();
+    private boolean rewardDataAvailable;
     private ShopManagerDAO shopDao;
 
     // Data
@@ -353,6 +355,10 @@ public class MobRewardScr extends JInternalFrame {
         JButton btnDelete = new JButton("Xóa");
         JButton btnClear = new JButton("Làm mới");
         JButton btnToggle = new JButton("Bật/Tắt");
+        for (JButton button : new JButton[]{btnAdd, btnUpdate, btnDelete, btnToggle}) {
+            rewardWriteButtons.add(button);
+            button.setEnabled(false);
+        }
 
         styleBtn(btnAdd, new Color(40, 167, 69));
         styleBtn(btnUpdate, new Color(255, 193, 7));
@@ -755,27 +761,55 @@ public class MobRewardScr extends JInternalFrame {
     // === DATA OPERATIONS ===
 
     private void loadData() {
-        new Thread(() -> {
-            rewardList = dao.getAll();
-            SwingUtilities.invokeLater(() -> {
-                refreshTable();
-                setStatus("Đã tải " + rewardList.size() + " bản ghi", new Color(40, 167, 69));
-            });
-        }).start();
+        loadRewards(false);
     }
 
     private void search() {
+        loadRewards(true);
+    }
+
+    private void loadRewards(boolean filtered) {
         String keyword = txtSearch.getText().trim();
         String eventKey = (String) cbEventFilter.getSelectedItem();
         String mapType = (String) cbMapTypeFilter.getSelectedItem();
+        btnRefresh.setEnabled(false);
+        btnSearch.setEnabled(false);
+        rewardDataAvailable = false;
+        for (JButton button : rewardWriteButtons) button.setEnabled(false);
+        setStatus("Đang tải phần thưởng quái...", Color.GRAY);
+        new SwingWorker<List<MobRewardModel>, Void>() {
+            private String error;
 
-        new Thread(() -> {
-            rewardList = dao.search(keyword, eventKey, mapType);
-            SwingUtilities.invokeLater(() -> {
-                refreshTable();
-                setStatus("Tìm thấy " + rewardList.size() + " bản ghi", new Color(23, 162, 184));
-            });
-        }).start();
+            @Override
+            protected List<MobRewardModel> doInBackground() {
+                List<MobRewardModel> items = filtered ? dao.search(keyword, eventKey, mapType) : dao.getAll();
+                error = dao.getLastError();
+                return items;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<MobRewardModel> items = get();
+                    rewardDataAvailable = error == null;
+                    rewardList = rewardDataAvailable ? items : new java.util.ArrayList<>();
+                    selectedReward = null;
+                    refreshTable();
+                    setStatus(rewardDataAvailable ? "Đã tải " + items.size() + " bản ghi" : error,
+                            rewardDataAvailable ? new Color(40, 167, 69) : Color.RED);
+                } catch (Exception ex) {
+                    rewardDataAvailable = false;
+                    rewardList = new java.util.ArrayList<>();
+                    selectedReward = null;
+                    refreshTable();
+                    setStatus("Không tải được phần thưởng quái. Hãy kiểm tra DB và bấm Làm mới.", Color.RED);
+                } finally {
+                    btnRefresh.setEnabled(true);
+                    btnSearch.setEnabled(true);
+                    for (JButton button : rewardWriteButtons) button.setEnabled(rewardDataAvailable);
+                }
+            }
+        }.execute();
     }
 
     private void refreshTable() {
@@ -945,6 +979,7 @@ public class MobRewardScr extends JInternalFrame {
     }
 
     private void addReward() {
+        if (!rewardDataAvailable) return;
         MobRewardModel m = getFormData();
         if (m == null)
             return;
@@ -955,12 +990,13 @@ public class MobRewardScr extends JInternalFrame {
             setStatus("Thêm mới thành công!", new Color(40, 167, 69));
             JOptionPane.showMessageDialog(this, "Thêm mới thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         } else {
-            setStatus("Thêm mới thất bại!", Color.RED);
+            setStatus(dao.getLastError() != null ? dao.getLastError() : "Thao tác không thành công, bản ghi có thể đã thay đổi. Hãy bấm Làm mới.", Color.RED);
             JOptionPane.showMessageDialog(this, "Thêm mới thất bại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void updateReward() {
+        if (!rewardDataAvailable) return;
         if (selectedReward == null) {
             setStatus("Vui lòng chọn một bản ghi để cập nhật!", Color.RED);
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một bản ghi để cập nhật!", "Cảnh báo",
@@ -977,12 +1013,13 @@ public class MobRewardScr extends JInternalFrame {
             setStatus("Cập nhật thành công!", new Color(40, 167, 69));
             JOptionPane.showMessageDialog(this, "Cập nhật thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         } else {
-            setStatus("Cập nhật thất bại!", Color.RED);
+            setStatus(dao.getLastError() != null ? dao.getLastError() : "Thao tác không thành công, bản ghi có thể đã thay đổi. Hãy bấm Làm mới.", Color.RED);
             JOptionPane.showMessageDialog(this, "Cập nhật thất bại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void deleteReward() {
+        if (!rewardDataAvailable) return;
         if (selectedReward == null) {
             setStatus("Vui lòng chọn một bản ghi để xóa!", Color.RED);
             return;
@@ -998,12 +1035,13 @@ public class MobRewardScr extends JInternalFrame {
                 clearForm();
                 setStatus("Xóa thành công!", new Color(40, 167, 69));
             } else {
-                setStatus("Xóa thất bại!", Color.RED);
+                setStatus(dao.getLastError() != null ? dao.getLastError() : "Thao tác không thành công, bản ghi có thể đã thay đổi. Hãy bấm Làm mới.", Color.RED);
             }
         }
     }
 
     private void toggleActive() {
+        if (!rewardDataAvailable) return;
         if (selectedReward == null) {
             setStatus("Vui lòng chọn một bản ghi!", Color.RED);
             return;
@@ -1016,7 +1054,7 @@ public class MobRewardScr extends JInternalFrame {
             loadData();
             setStatus("Đã " + (newState ? "kích hoạt" : "vô hiệu hóa") + " bản ghi!", new Color(23, 162, 184));
         } else {
-            setStatus("Thao tác thất bại!", Color.RED);
+            setStatus(dao.getLastError() != null ? dao.getLastError() : "Thao tác không thành công, bản ghi có thể đã thay đổi. Hãy bấm Làm mới.", Color.RED);
         }
     }
 

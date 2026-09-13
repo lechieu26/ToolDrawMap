@@ -11,6 +11,21 @@ import java.util.List;
 public class MobRewardDAO {
 
     private static MobRewardDAO instance;
+    private final ThreadLocal<String> lastError = new ThreadLocal<>();
+
+    public String getLastError() {
+        return lastError.get();
+    }
+
+    private void recordError(Exception error) {
+        if (error instanceof SQLException && ((SQLException) error).getErrorCode() == 1146) {
+            lastError.set("DB thiếu bảng cần cho phần thưởng quái (mob_reward hoặc bảng template). Tính năng chưa khả dụng.");
+        } else {
+            lastError.set("Không thể truy cập phần thưởng quái: " + error.getMessage());
+        }
+        System.err.println(lastError.get());
+    }
+
 
     public static MobRewardDAO gI() {
         if (instance == null) {
@@ -23,6 +38,7 @@ public class MobRewardDAO {
      * Lấy danh sách tất cả MobReward
      */
     public List<MobRewardModel> getAll() {
+        lastError.remove();
         List<MobRewardModel> list = new ArrayList<>();
 
         String sql = """
@@ -37,8 +53,7 @@ public class MobRewardDAO {
                 ORDER BY mr.id DESC
                 """;
 
-        try (Connection con = ShopManagerDAO.gI().getConnection();
-                Statement stmt = con.createStatement();
+        try (Statement stmt = ShopManagerDAO.gI().getConnection().createStatement();
                 ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
@@ -69,7 +84,7 @@ public class MobRewardDAO {
                 list.add(m);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            recordError(e);
         }
 
         return list;
@@ -79,6 +94,7 @@ public class MobRewardDAO {
      * Tìm kiếm theo điều kiện
      */
     public List<MobRewardModel> search(String keyword, String eventKey, String mapType) {
+        lastError.remove();
         List<MobRewardModel> list = new ArrayList<>();
 
         StringBuilder sql = new StringBuilder("""
@@ -118,8 +134,7 @@ public class MobRewardDAO {
 
         sql.append(" ORDER BY mr.id DESC");
 
-        try (Connection con = ShopManagerDAO.gI().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql.toString())) {
+        try (PreparedStatement ps = ShopManagerDAO.gI().getConnection().prepareStatement(sql.toString())) {
 
             for (int i = 0; i < params.size(); i++) {
                 ps.setObject(i + 1, params.get(i));
@@ -154,7 +169,7 @@ public class MobRewardDAO {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            recordError(e);
         }
 
         return list;
@@ -164,6 +179,7 @@ public class MobRewardDAO {
      * Thêm mới MobReward
      */
     public boolean add(MobRewardModel m) {
+        lastError.remove();
         String sql = """
                 INSERT INTO mob_reward (mob_id, map_id, item_template_id, rate, quantity_min, quantity_max,
                                         gender, event_key, map_type, condition_type, options_json,
@@ -171,8 +187,7 @@ public class MobRewardDAO {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
-        try (Connection con = ShopManagerDAO.gI().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (PreparedStatement ps = ShopManagerDAO.gI().getConnection().prepareStatement(sql)) {
 
             ps.setInt(1, m.mobId);
             ps.setInt(2, m.mapId);
@@ -193,7 +208,7 @@ public class MobRewardDAO {
 
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            recordError(e);
             return false;
         }
     }
@@ -202,6 +217,7 @@ public class MobRewardDAO {
      * Cập nhật MobReward
      */
     public boolean update(MobRewardModel m) {
+        lastError.remove();
         String sql = """
                 UPDATE mob_reward SET
                     mob_id = ?, map_id = ?, item_template_id = ?, rate = ?, quantity_min = ?, quantity_max = ?,
@@ -210,8 +226,7 @@ public class MobRewardDAO {
                 WHERE id = ?
                 """;
 
-        try (Connection con = ShopManagerDAO.gI().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (PreparedStatement ps = ShopManagerDAO.gI().getConnection().prepareStatement(sql)) {
 
             ps.setInt(1, m.mobId);
             ps.setInt(2, m.mapId);
@@ -233,7 +248,7 @@ public class MobRewardDAO {
 
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            recordError(e);
             return false;
         }
     }
@@ -253,15 +268,15 @@ public class MobRewardDAO {
      * Xóa MobReward
      */
     public boolean delete(int id) {
+        lastError.remove();
         String sql = "DELETE FROM mob_reward WHERE id = ?";
 
-        try (Connection con = ShopManagerDAO.gI().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (PreparedStatement ps = ShopManagerDAO.gI().getConnection().prepareStatement(sql)) {
 
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            recordError(e);
             return false;
         }
     }
@@ -270,16 +285,16 @@ public class MobRewardDAO {
      * Toggle active status
      */
     public boolean toggleActive(int id, boolean active) {
+        lastError.remove();
         String sql = "UPDATE mob_reward SET is_active = ? WHERE id = ?";
 
-        try (Connection con = ShopManagerDAO.gI().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (PreparedStatement ps = ShopManagerDAO.gI().getConnection().prepareStatement(sql)) {
 
             ps.setBoolean(1, active);
             ps.setInt(2, id);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            recordError(e);
             return false;
         }
     }

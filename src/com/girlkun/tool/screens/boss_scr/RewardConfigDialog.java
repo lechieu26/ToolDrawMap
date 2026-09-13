@@ -8,6 +8,8 @@ import org.json.simple.JSONValue;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -29,6 +31,9 @@ public class RewardConfigDialog extends JDialog {
     private DefaultTableModel rewardItemTableModel;
 
     private JComboBox<ItemTemplate> cbRewardItemTemplate;
+    private JLabel lblRewardItemStatus;
+    private Timer rewardSearchTimer;
+    private SwingWorker<List<ItemTemplate>, Void> rewardSearchWorker;
     private JTextField txtRewardFindItem, txtQuantityMin, txtQuantityMax, txtRewardRate;
     private JTextField txtEventPoint, txtActivePoint;
     private JComboBox<ItemOptionTemplate> cbRewardOpt;
@@ -57,10 +62,12 @@ public class RewardConfigDialog extends JDialog {
         styleBtn(btnClose, new Color(40, 167, 69));
         btnClose.setPreferredSize(new Dimension(0, 42));
         btnClose.addActionListener(e -> {
+            if (!finishRewardEditing()) return;
             applyRewardsToBoss();
             dispose();
         });
         add(btnClose, BorderLayout.SOUTH);
+        searchRewardTemplate();
     }
 
     private void parseInitialData() {
@@ -176,10 +183,49 @@ public class RewardConfigDialog extends JDialog {
         rewardItemTableModel = new DefaultTableModel(new Object[]{"ID", "Tên Item", "Số Lượng", "Tỉ Lệ (%)", "Điểm SK", "Điểm NĐ"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return column >= 2;
+            }
+
+            @Override
+            public void setValueAt(Object value, int row, int column) {
+                RewardItem item = currentRewardItems.get(row);
+                String text = String.valueOf(value).trim();
+                if (column == 2) {
+                    String[] bounds = text.split("\\s*-\\s*", -1);
+                    item.quantityMin = Integer.parseInt(bounds[0]);
+                    item.quantityMax = Integer.parseInt(bounds[bounds.length - 1]);
+                    value = item.quantityMin == item.quantityMax ? String.valueOf(item.quantityMin)
+                            : item.quantityMin + " - " + item.quantityMax;
+                } else if (column == 3) {
+                    item.rate = Double.parseDouble(text.replace("%", "").trim());
+                    value = item.rate + "%";
+                } else if (column == 4) {
+                    item.eventPoint = Integer.parseInt(text);
+                    value = item.eventPoint;
+                } else if (column == 5) {
+                    item.activePoint = Integer.parseInt(text);
+                    value = item.activePoint;
+                }
+                super.setValueAt(value, row, column);
             }
         };
         rewardItemTable = new JTable(rewardItemTableModel);
+        DefaultCellEditor rewardEditor = new DefaultCellEditor(new JTextField()) {
+            @Override
+            public boolean stopCellEditing() {
+                try {
+                    validateRewardCell(String.valueOf(getCellEditorValue()).trim(), rewardItemTable.getEditingColumn());
+                } catch (IllegalArgumentException ex) {
+                    JOptionPane.showMessageDialog(RewardConfigDialog.this, ex.getMessage(),
+                            "Giá trị không hợp lệ", JOptionPane.WARNING_MESSAGE);
+                    return false;
+                }
+                return super.stopCellEditing();
+            }
+        };
+        rewardEditor.setClickCountToStart(2);
+        rewardItemTable.setDefaultEditor(Object.class, rewardEditor);
+        rewardItemTable.setToolTipText("Nhấp đúp để sửa. Số lượng: 5 hoặc 1 - 5; tỉ lệ: 0 đến 100.");
         rewardItemTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         rewardItemTable.addMouseListener(new MouseAdapter() {
             @Override
@@ -260,6 +306,22 @@ public class RewardConfigDialog extends JDialog {
         gbc.gridy = row++;
         JPanel searchP = new JPanel(new BorderLayout(3, 0));
         txtRewardFindItem = new JTextField();
+        rewardSearchTimer = new Timer(300, e -> searchRewardTemplate());
+        rewardSearchTimer.setRepeats(false);
+        txtRewardFindItem.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { scheduleSearch(); }
+            public void removeUpdate(DocumentEvent e) { scheduleSearch(); }
+            public void changedUpdate(DocumentEvent e) { scheduleSearch(); }
+
+            private void scheduleSearch() {
+                if (rewardSearchWorker != null) {
+                    rewardSearchWorker.cancel(true);
+                }
+                cbRewardItemTemplate.removeAllItems();
+                cbRewardItemTemplate.setEnabled(false);
+                rewardSearchTimer.restart();
+            }
+        });
         JButton btnFind = new JButton("Tìm");
         btnFind.addActionListener(e -> searchRewardTemplate());
         txtRewardFindItem.addActionListener(e -> searchRewardTemplate());
@@ -271,6 +333,9 @@ public class RewardConfigDialog extends JDialog {
         addPanel.add(new JLabel("Chọn Item:"), gbc);
         gbc.gridy = row++;
         addPanel.add(cbRewardItemTemplate = new JComboBox<>(), gbc);
+        cbRewardItemTemplate.setPrototypeDisplayValue(new ItemTemplate(99999, "Tên vật phẩm phần thưởng"));
+        gbc.gridy = row++;
+        addPanel.add(lblRewardItemStatus = new JLabel(" "), gbc);
 
         gbc.gridy = row++;
         addPanel.add(new JLabel("Số lượng rơi (Min - Max):"), gbc);
@@ -331,26 +396,57 @@ public class RewardConfigDialog extends JDialog {
     }
 
     private void searchRewardTemplate() {
+        rewardSearchTimer.stop();
+        if (rewardSearchWorker != null) {
+            rewardSearchWorker.cancel(true);
+        }
+        final String search = txtRewardFindItem.getText().trim();
         cbRewardItemTemplate.removeAllItems();
-        new SwingWorker<List<ItemTemplate>, Void>() {
+        cbRewardItemTemplate.setEnabled(false);
+        lblRewardItemStatus.setText("Đang tải item...");
+        rewardSearchWorker = new SwingWorker<List<ItemTemplate>, Void>() {
             @Override
             protected List<ItemTemplate> doInBackground() {
-                return ShopManagerDAO.gI().getItemTemplates(txtRewardFindItem.getText().trim());
+                return ShopManagerDAO.gI().getItemTemplates(search);
             }
 
             @Override
             protected void done() {
+                if (isCancelled() || rewardSearchWorker != this) {
+                    return;
+                }
                 try {
-                    for (ItemTemplate t : get()) {
-                        cbRewardItemTemplate.addItem(t);
+                    List<ItemTemplate> items = get();
+                    cbRewardItemTemplate.setModel(new DefaultComboBoxModel<>(items.toArray(new ItemTemplate[0])));
+                    for (ItemTemplate t : items) {
+                        itemCache.put(t.id, t);
                     }
-                } catch (Exception ignored) {
+                    cbRewardItemTemplate.setEnabled(!items.isEmpty());
+                    lblRewardItemStatus.setText(items.isEmpty()
+                            ? "Không có item. Kiểm tra từ khóa hoặc kết nối DB."
+                            : "Tìm thấy " + items.size() + " item");
+                } catch (Exception ex) {
+                    lblRewardItemStatus.setText("Không tải được item. Vui lòng thử tìm lại.");
+                    ex.printStackTrace();
                 }
             }
-        }.execute();
+        };
+        rewardSearchWorker.execute();
+    }
+
+    @Override
+    public void dispose() {
+        if (rewardSearchTimer != null) {
+            rewardSearchTimer.stop();
+        }
+        if (rewardSearchWorker != null) {
+            rewardSearchWorker.cancel(true);
+        }
+        super.dispose();
     }
 
     private void addRewardItem() {
+        if (!finishRewardEditing()) return;
         ItemTemplate t = (ItemTemplate) cbRewardItemTemplate.getSelectedItem();
         if (t == null) {
             JOptionPane.showMessageDialog(this, "Vui lòng tìm và chọn một Item!");
@@ -412,11 +508,38 @@ public class RewardConfigDialog extends JDialog {
     }
 
     private void deleteSelectedRewardItem() {
+        if (!finishRewardEditing()) return;
         if (selectedRewardItemIdx >= 0 && selectedRewardItemIdx < currentRewardItems.size()) {
             currentRewardItems.remove(selectedRewardItemIdx);
             selectedRewardItemIdx = -1;
             refreshRewardUI();
             modelRewardOpts.setRowCount(0);
+        }
+    }
+
+    private boolean finishRewardEditing() {
+        return !rewardItemTable.isEditing() || rewardItemTable.getCellEditor().stopCellEditing();
+    }
+
+    private static void validateRewardCell(String text, int column) {
+        try {
+            if (column == 2) {
+                String[] bounds = text.split("\\s*-\\s*", -1);
+                if (bounds.length < 1 || bounds.length > 2) throw new NumberFormatException();
+                int min = Integer.parseInt(bounds[0]);
+                int max = Integer.parseInt(bounds[bounds.length - 1]);
+                if (min < 1 || max < min) throw new NumberFormatException();
+            } else if (column == 3) {
+                double rate = Double.parseDouble(text.replace("%", "").trim());
+                if (!Double.isFinite(rate) || rate < 0 || rate > 100) throw new NumberFormatException();
+            } else if (column == 4 || column == 5) {
+                if (Integer.parseInt(text) < 0) throw new NumberFormatException();
+            }
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(column == 2
+                    ? "Số lượng phải là số nguyên dương (vd: 5 hoặc 1 - 5), Max ≥ Min."
+                    : column == 3 ? "Tỉ lệ phải là số từ 0 đến 100 (vd: 5.5)."
+                    : "Điểm phải là số nguyên không âm.");
         }
     }
 

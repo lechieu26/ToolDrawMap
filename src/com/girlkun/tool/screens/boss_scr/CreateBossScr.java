@@ -94,7 +94,7 @@ public class CreateBossScr extends JInternalFrame {
     private JComboBox<String> cboForms;
     private JTextField txtFormName, txtDame, txtHp;
     private JTextField txtOutfitHead, txtOutfitBody, txtOutfitLeg;
-    private JTextField txtTextS, txtTextM, txtTextE;
+    private BossChatEditor txtTextS, txtTextM, txtTextE;
 
     // UI Components - Left List
     private JList<BossConfig> listBoss;
@@ -448,86 +448,46 @@ public class CreateBossScr extends JInternalFrame {
     }
 
     private JPanel createHeaderPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setBorder(BorderFactory.createTitledBorder("Cấu hình Chung của Boss (boss_template / boss_map / boss_appear_together)"));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(3, 5, 3, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        JPanel p = new JPanel(new GridLayout(1, 2, 12, 0));
+        p.setBorder(BorderFactory.createTitledBorder("Cấu hình chung của Boss"));
 
-        // Row 0
-        gbc.gridy = 0;
-        gbc.gridx = 0; gbc.weightx = 0.1;
-        p.add(new JLabel("ID Boss:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 0.4;
-        JPanel idPnl = new JPanel(new BorderLayout(3, 0));
+        JPanel identity = createBossHeaderGroup("Thông tin & phân loại");
+        JPanel spawn = createBossHeaderGroup("Xuất hiện & hồi sinh");
+        p.add(identity);
+        p.add(spawn);
+
+        JPanel idPnl = new JPanel(new BorderLayout(4, 0));
         txtBossId = new JTextField("1");
-        JButton btnNextId = new JButton("ID Tiếp Theo");
+        JButton btnNextId = new JButton("ID tiếp theo");
         btnNextId.addActionListener(e -> txtBossId.setText(String.valueOf(ShopManagerDAO.gI().getNextBossId())));
         idPnl.add(txtBossId, BorderLayout.CENTER);
         idPnl.add(btnNextId, BorderLayout.EAST);
-        p.add(idPnl, gbc);
-
-        gbc.gridx = 2; gbc.weightx = 0.1;
-        p.add(new JLabel("Tên Boss:"), gbc);
-        gbc.gridx = 3; gbc.weightx = 0.4;
-        p.add(txtBossName = new JTextField("New Boss"), gbc);
-
-        // Row 1
-        gbc.gridy = 1;
-        gbc.gridx = 0;
-        p.add(new JLabel("Loại Boss:"), gbc);
-        gbc.gridx = 1;
+        addBossHeaderField(identity, 0, "ID Boss:", idPnl);
+        addBossHeaderField(identity, 1, "Tên Boss:", txtBossName = new JTextField("New Boss"));
         cboBossType = new JComboBox<>(new String[] { "NORMAL", "TASK", "EVENT", "DUNGEON", "PHOBAN", "MINI", "FINAL" });
-        p.add(cboBossType, gbc);
-
-        gbc.gridx = 2;
-        p.add(new JLabel("Nhóm (sub_type):"), gbc);
-        gbc.gridx = 3;
-        txtSubType = new JTextField("DEFAULT");
-        p.add(txtSubType, gbc);
-
-        // Row 2
-        gbc.gridy = 2;
-        gbc.gridx = 0;
-        p.add(new JLabel("Hành tinh:"), gbc);
-        gbc.gridx = 1;
+        addBossHeaderField(identity, 2, "Loại Boss:", cboBossType);
+        addBossHeaderField(identity, 3, "Nhóm:", txtSubType = new JTextField("DEFAULT"));
+        txtSubType.setToolTipText("sub_type");
         cboGender = new JComboBox<>(new String[] { "0: Trái Đất", "1: Namếc", "2: Xayda" });
-        p.add(cboGender, gbc);
+        addBossHeaderField(identity, 4, "Hành tinh:", cboGender);
+        addBossHeaderField(identity, 5, "ID nhiệm vụ:", txtRequireTaskId = new JTextField(""));
+        addBossHeaderField(identity, 6, "Extra JSON:", txtExtraConfig = new JTextField(""));
+        chkNotify = new JCheckBox("Thông báo khi boss xuất hiện / chết", true);
+        chkNotify.setToolTipText("Thông báo toàn server (is_notify)");
+        addBossHeaderField(identity, 7, null, chkNotify);
 
-        gbc.gridx = 2;
-        p.add(new JLabel("Số lượng spawn:"), gbc);
-        gbc.gridx = 3;
-        p.add(txtSpawnCount = new JTextField("1"), gbc);
-
-        // Row 3
-        gbc.gridy = 3;
-        gbc.gridx = 0;
-        p.add(new JLabel("Hồi sinh (giây):"), gbc);
-        gbc.gridx = 1;
-        p.add(txtRespawnDelay = new JTextField("300"), gbc);
-
-        gbc.gridx = 2;
-        p.add(new JLabel("Tự rời map (giây):"), gbc);
-        gbc.gridx = 3;
-        p.add(txtDespawnTimeout = new JTextField("900"), gbc);
-
-        // Row 4: Map Join & Boss Đi Cùng
-        gbc.gridy = 4;
-        gbc.gridx = 0;
-        p.add(new JLabel("Map Join:"), gbc);
-        gbc.gridx = 1;
-        JPanel mapPnl = new JPanel(new BorderLayout(3, 0));
+        JPanel mapPnl = new JPanel(new BorderLayout(4, 0));
         txtMapJoin = new JTextField("5");
         JButton btnSelectMap = new JButton("Chọn...");
         btnSelectMap.addActionListener(e -> openMapSelectorDialog());
         mapPnl.add(txtMapJoin, BorderLayout.CENTER);
         mapPnl.add(btnSelectMap, BorderLayout.EAST);
-        p.add(mapPnl, gbc);
+        addBossHeaderField(spawn, 0, "Map xuất hiện:", mapPnl);
+        addBossHeaderField(spawn, 1, "Số lượng spawn:", txtSpawnCount = new JTextField("1"));
+        addBossHeaderField(spawn, 2, "Hồi sinh (giây):", txtRespawnDelay = new JTextField("300"));
+        addBossHeaderField(spawn, 3, "Tự rời map (giây):", txtDespawnTimeout = new JTextField("900"));
 
-        gbc.gridx = 2;
-        p.add(new JLabel("Boss đi cùng:"), gbc);
-        gbc.gridx = 3;
-        JPanel togetherPnl = new JPanel(new BorderLayout(3, 0));
+        JPanel togetherPnl = new JPanel(new BorderLayout(4, 0));
         txtBossesTogether = new JTextField("");
         txtBossesTogether.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { updateTogetherPreview(); }
@@ -538,44 +498,46 @@ public class CreateBossScr extends JInternalFrame {
         btnSelectTogether.addActionListener(e -> openBossTogetherSelectorDialog());
         togetherPnl.add(txtBossesTogether, BorderLayout.CENTER);
         togetherPnl.add(btnSelectTogether, BorderLayout.EAST);
-        p.add(togetherPnl, gbc);
-
-        // Row 5: Preview status của Boss đi cùng
-        gbc.gridy = 5;
-        gbc.gridx = 0;
-        p.add(new JLabel("Chi tiết đi cùng:"), gbc);
-        gbc.gridx = 1;
-        gbc.gridwidth = 3;
+        addBossHeaderField(spawn, 4, "Boss đi cùng:", togetherPnl);
         lblTogetherPreview = new JLabel("(Không có boss đi cùng)");
         lblTogetherPreview.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblTogetherPreview.setForeground(Color.GRAY);
-        p.add(lblTogetherPreview, gbc);
-        gbc.gridwidth = 1; // reset
-
-        // Row 6: Require Task ID & Extra Config
-        gbc.gridy = 6;
-        gbc.gridx = 0;
-        p.add(new JLabel("ID Nhiệm vụ:"), gbc);
-        gbc.gridx = 1;
-        p.add(txtRequireTaskId = new JTextField(""), gbc);
-
-        gbc.gridx = 2;
-        p.add(new JLabel("Cấu hình Extra JSON:"), gbc);
-        gbc.gridx = 3;
-        p.add(txtExtraConfig = new JTextField(""), gbc);
-
-        // Row 7: Checkboxes
-        gbc.gridy = 7;
-        gbc.gridx = 0;
-        gbc.gridwidth = 4;
-        JPanel chkPnl = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
-        chkPnl.add(chkEnabled = new JCheckBox("Bật Spawn (enabled)", true));
-        chkPnl.add(chkNotify = new JCheckBox("Thông báo toàn Server khi xuất hiện/chết (is_notify)", true));
-        chkZone01Disabled = new JCheckBox("Không spawn ở khu 0 và 1 (is_zone_0_1_disabled)", true);
-        chkPnl.add(chkZone01Disabled);
-        p.add(chkPnl, gbc);
-
+        lblTogetherPreview.setMinimumSize(new Dimension(0, 20));
+        addBossHeaderField(spawn, 5, "Chi tiết:", lblTogetherPreview);
+        chkEnabled = new JCheckBox("Bật spawn", true);
+        addBossHeaderField(spawn, 6, null, chkEnabled);
+        chkZone01Disabled = new JCheckBox("Không spawn ở khu 0 và 1", true);
+        addBossHeaderField(spawn, 7, null, chkZone01Disabled);
         return p;
+    }
+
+    private JPanel createBossHeaderGroup(String title) {
+        JPanel group = new JPanel(new GridBagLayout());
+        group.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(title),
+                BorderFactory.createEmptyBorder(3, 5, 5, 5)));
+        return group;
+    }
+
+    private void addBossHeaderField(JPanel group, int row, String label, JComponent field) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridy = row;
+        gbc.gridx = 0;
+        gbc.anchor = GridBagConstraints.LINE_END;
+        gbc.insets = new Insets(3, 0, 3, 6);
+        if (label != null) {
+            JLabel caption = new JLabel(label);
+            caption.setLabelFor(field);
+            group.add(caption, gbc);
+            gbc.gridx = 1;
+        } else {
+            gbc.gridwidth = 2;
+        }
+        gbc.weightx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.LINE_START;
+        gbc.insets = new Insets(3, 0, 3, 0);
+        group.add(field, gbc);
     }
 
     private JPanel createFormAndChatPanel() {
@@ -588,9 +550,9 @@ public class CreateBossScr extends JInternalFrame {
         cboForms = new JComboBox<>();
         cboForms.setPreferredSize(new Dimension(220, 26));
         cboForms.addActionListener(e -> {
-            if (!isUpdatingUi && currentBoss != null) {
+            if (!isUpdatingUi && currentBoss != null && currentBoss.forms != null) {
                 int sel = cboForms.getSelectedIndex();
-                if (sel >= 0 && sel != currentFormIdx) {
+                if (sel >= 0 && sel < currentBoss.forms.size() && sel != currentFormIdx) {
                     saveCurrentFormValues();
                     currentFormIdx = sel;
                     loadFormValues(currentFormIdx);
@@ -623,9 +585,9 @@ public class CreateBossScr extends JInternalFrame {
         content.add(formStats);
 
         JPanel chats = new JPanel(new GridLayout(1, 3, 5, 0));
-        chats.add(createFormRow("Thoại Xuất Hiện:", txtTextS = new JTextField("[\"Ta đã đến\"]")));
-        chats.add(createFormRow("Thoại Đánh:", txtTextM = new JTextField("[\"Haha!\"]")));
-        chats.add(createFormRow("Thoại Khi Chết:", txtTextE = new JTextField("[\"Ta sẽ quay lại\"]")));
+        chats.add(createFormRow("Thoại Xuất Hiện:", txtTextS = new BossChatEditor("[\"|-1|Ta đã đến\"]")));
+        chats.add(createFormRow("Thoại Đánh:", txtTextM = new BossChatEditor("[\"|-1|Haha!\"]")));
+        chats.add(createFormRow("Thoại Khi Chết:", txtTextE = new BossChatEditor("[\"|-1|Ta sẽ quay lại\"]")));
         content.add(chats);
 
         p.add(content, BorderLayout.CENTER);
@@ -639,7 +601,29 @@ public class CreateBossScr extends JInternalFrame {
 
         skillTableModel = new DefaultTableModel(new Object[] { "Kỹ Năng", "Cấp (1-7)", "Hồi chiêu (ms)" }, 0);
         skillTable = new JTable(skillTableModel);
+        Color skillBorderColor = UIManager.getColor("Component.borderColor");
+        if (skillBorderColor == null) skillBorderColor = Color.GRAY;
+        skillTable.setShowGrid(true);
+        skillTable.setGridColor(skillBorderColor);
+        skillTable.setIntercellSpacing(new Dimension(1, 1));
+        skillTable.setRowHeight(30);
+        DefaultTableCellRenderer skillCellRenderer = new DefaultTableCellRenderer();
+        skillCellRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+        skillTable.setDefaultRenderer(Object.class, skillCellRenderer);
+        javax.swing.table.TableCellRenderer skillHeaderRenderer = skillTable.getTableHeader().getDefaultRenderer();
+        skillTable.getTableHeader().setDefaultRenderer((table, value, selected, focused, row, column) -> {
+            Component header = skillHeaderRenderer.getTableCellRendererComponent(table, value, selected, focused, row, column);
+            if (header instanceof JLabel) ((JLabel) header).setHorizontalAlignment(SwingConstants.CENTER);
+            return header;
+        });
+        JTextField skillValueEditor = new JTextField();
+        skillValueEditor.setHorizontalAlignment(SwingConstants.CENTER);
+        skillTable.setDefaultEditor(Object.class, new DefaultCellEditor(skillValueEditor));
+        skillTable.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         cboSkillEditor = new JComboBox<>();
+        DefaultListCellRenderer skillChoiceRenderer = new DefaultListCellRenderer();
+        skillChoiceRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+        cboSkillEditor.setRenderer(skillChoiceRenderer);
         new SwingWorker<List<ShopManagerDAO.SkillTemplate>, Void>() {
             @Override
             protected List<ShopManagerDAO.SkillTemplate> doInBackground() {
@@ -666,13 +650,16 @@ public class CreateBossScr extends JInternalFrame {
         remS.addActionListener(e -> {
             int r = skillTable.getSelectedRow();
             if (r >= 0) {
+                cancelSkillEditing();
                 skillTableModel.removeRow(r);
             }
         });
         bp.add(addS);
         bp.add(remS);
 
-        sp.add(new JScrollPane(skillTable), BorderLayout.CENTER);
+        JScrollPane skillScroll = new JScrollPane(skillTable);
+        skillScroll.setBorder(BorderFactory.createLineBorder(skillBorderColor));
+        sp.add(skillScroll, BorderLayout.CENTER);
 
         JPanel southP = new JPanel(new BorderLayout(3, 3));
         southP.add(bp, BorderLayout.NORTH);
@@ -709,42 +696,47 @@ public class CreateBossScr extends JInternalFrame {
 
     private void fillBossInfo(BossConfig boss) {
         if (boss == null) return;
+        cancelSkillEditing();
         this.currentBoss = boss;
+        boolean prev = isUpdatingUi;
         isUpdatingUi = true;
+        try {
 
-        txtBossName.setText(boss.bossName != null ? boss.bossName : "");
-        txtBossId.setText(String.valueOf(boss.bossId));
-        cboBossType.setSelectedItem(boss.bossType != null ? boss.bossType : "NORMAL");
-        txtSubType.setText(boss.subType != null ? boss.subType : "DEFAULT");
-        cboGender.setSelectedIndex(boss.gender >= 0 && boss.gender <= 2 ? boss.gender : 0);
-        txtSpawnCount.setText(String.valueOf(boss.spawnCount > 0 ? boss.spawnCount : 1));
-        txtRespawnDelay.setText(String.valueOf(boss.respawnDelay > 0 ? boss.respawnDelay : boss.secondsRest));
-        txtDespawnTimeout.setText(String.valueOf(boss.despawnTimeout > 0 ? boss.despawnTimeout : 900));
-        txtMapJoin.setText(boss.mapJoin != null ? boss.mapJoin : "");
-        txtBossesTogether.setText(boss.bossesAppearTogether != null ? boss.bossesAppearTogether : "");
-        txtRequireTaskId.setText(boss.requireTaskId != null ? String.valueOf(boss.requireTaskId) : "");
-        txtExtraConfig.setText(boss.extraConfig != null ? boss.extraConfig : "");
+            txtBossName.setText(boss.bossName != null ? boss.bossName : "");
+            txtBossId.setText(String.valueOf(boss.bossId));
+            cboBossType.setSelectedItem(boss.bossType != null ? boss.bossType : "NORMAL");
+            txtSubType.setText(boss.subType != null ? boss.subType : "DEFAULT");
+            cboGender.setSelectedIndex(boss.gender >= 0 && boss.gender <= 2 ? boss.gender : 0);
+            txtSpawnCount.setText(String.valueOf(boss.spawnCount > 0 ? boss.spawnCount : 1));
+            txtRespawnDelay.setText(String.valueOf(boss.respawnDelay > 0 ? boss.respawnDelay : boss.secondsRest));
+            txtDespawnTimeout.setText(String.valueOf(boss.despawnTimeout > 0 ? boss.despawnTimeout : 900));
+            txtMapJoin.setText(boss.mapJoin != null ? boss.mapJoin : "");
+            txtBossesTogether.setText(boss.bossesAppearTogether != null ? boss.bossesAppearTogether : "");
+            txtRequireTaskId.setText(boss.requireTaskId != null ? String.valueOf(boss.requireTaskId) : "");
+            txtExtraConfig.setText(boss.extraConfig != null ? boss.extraConfig : "");
 
-        chkEnabled.setSelected(boss.enabled);
-        chkNotify.setSelected(boss.isNotify);
-        chkZone01Disabled.setSelected(boss.isZone01SpawnDisabled);
+            chkEnabled.setSelected(boss.enabled);
+            chkNotify.setSelected(boss.isNotify);
+            chkZone01Disabled.setSelected(boss.isZone01SpawnDisabled);
 
-        // Ensure at least 1 form exists
-        if (boss.forms == null || boss.forms.isEmpty()) {
-            boss.forms = new ArrayList<>();
-            BossFormConfig f0 = new BossFormConfig(0, boss.bossName);
-            f0.dame = (int) boss.dame;
-            boss.forms.add(f0);
+            // Ensure at least 1 form exists
+            if (boss.forms == null || boss.forms.isEmpty()) {
+                boss.forms = new ArrayList<>();
+                BossFormConfig f0 = new BossFormConfig(0, boss.bossName);
+                f0.dame = (int) boss.dame;
+                boss.forms.add(f0);
+            }
+
+            refreshFormsCombo();
+            currentFormIdx = 0;
+            cboForms.setSelectedIndex(0);
+            loadFormValues(0);
+
+            updateRewardButtonText();
+            updateTogetherPreview();
+        } finally {
+            isUpdatingUi = prev;
         }
-
-        refreshFormsCombo();
-        currentFormIdx = 0;
-        cboForms.setSelectedIndex(0);
-        loadFormValues(0);
-
-        updateRewardButtonText();
-        updateTogetherPreview();
-        isUpdatingUi = false;
     }
 
     private void updateTogetherPreview() {
@@ -792,12 +784,21 @@ public class CreateBossScr extends JInternalFrame {
     }
 
     private void refreshFormsCombo() {
-        cboForms.removeAllItems();
-        if (currentBoss != null && currentBoss.forms != null) {
-            for (int i = 0; i < currentBoss.forms.size(); i++) {
-                BossFormConfig f = currentBoss.forms.get(i);
-                cboForms.addItem(String.format("Dạng %d: %s", i, f.name != null ? f.name : ""));
+        boolean prev = isUpdatingUi;
+        isUpdatingUi = true;
+        try {
+            cboForms.removeAllItems();
+            if (currentBoss != null && currentBoss.forms != null) {
+                for (int i = 0; i < currentBoss.forms.size(); i++) {
+                    BossFormConfig f = currentBoss.forms.get(i);
+                    cboForms.addItem(String.format("Dạng %d: %s", i, f.name != null ? f.name : ""));
+                }
             }
+            if (currentFormIdx >= 0 && currentFormIdx < cboForms.getItemCount()) {
+                cboForms.setSelectedIndex(currentFormIdx);
+            }
+        } finally {
+            isUpdatingUi = prev;
         }
     }
 
@@ -805,43 +806,60 @@ public class CreateBossScr extends JInternalFrame {
         if (currentBoss == null || currentBoss.forms == null || formIdx < 0 || formIdx >= currentBoss.forms.size()) {
             return;
         }
-        BossFormConfig form = currentBoss.forms.get(formIdx);
-        txtFormName.setText(form.name != null ? form.name : "");
-        txtDame.setText(String.valueOf(form.dame));
-        if (form.hpMin == form.hpMax) {
-            txtHp.setText(String.valueOf(form.hpMin));
-        } else {
-            txtHp.setText(form.hpMin + ", " + form.hpMax);
-        }
-
-        txtTextS.setText(form.textStart != null ? form.textStart : "[]");
-        txtTextM.setText(form.textMid != null ? form.textMid : "[]");
-        txtTextE.setText(form.textEnd != null ? form.textEnd : "[]");
-
-        selectedHeadPartId = form.outfitHead;
-        selectedBodyPartId = form.outfitBody;
-        selectedLegPartId = form.outfitLeg;
-        if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(selectedHeadPartId));
-        if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(selectedBodyPartId));
-        if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(selectedLegPartId));
-        updateOutfitLabel();
-        loadPartPositions();
-
-        // Load skills
-        skillTableModel.setRowCount(0);
-        if (form.skills != null) {
-            for (BossSkillConfig sk : form.skills) {
-                ShopManagerDAO.SkillTemplate st = skillCache.get(sk.skillId);
-                skillTableModel.addRow(new Object[] {
-                        st != null ? st : String.valueOf(sk.skillId),
-                        String.valueOf(sk.skillLevel),
-                        String.valueOf(sk.cooldown)
-                });
+        boolean prev = isUpdatingUi;
+        isUpdatingUi = true;
+        try {
+            BossFormConfig form = currentBoss.forms.get(formIdx);
+            txtFormName.setText(form.name != null ? form.name : "");
+            txtDame.setText(String.valueOf(form.dame));
+            if (form.hpMin == form.hpMax) {
+                txtHp.setText(String.valueOf(form.hpMin));
+            } else {
+                txtHp.setText(form.hpMin + ", " + form.hpMax);
             }
+
+            txtTextS.setText(form.textStart != null ? form.textStart : "[]");
+            txtTextM.setText(form.textMid != null ? form.textMid : "[]");
+            txtTextE.setText(form.textEnd != null ? form.textEnd : "[]");
+
+            selectedHeadPartId = form.outfitHead;
+            selectedBodyPartId = form.outfitBody;
+            selectedLegPartId = form.outfitLeg;
+            if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(selectedHeadPartId));
+            if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(selectedBodyPartId));
+            if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(selectedLegPartId));
+            updateOutfitLabel();
+
+            // Detach the old editor before replacing rows for another form.
+            cancelSkillEditing();
+            skillTableModel.setRowCount(0);
+            if (form.skills != null) {
+                for (BossSkillConfig sk : form.skills) {
+                    ShopManagerDAO.SkillTemplate st = skillCache.get(sk.skillId);
+                    skillTableModel.addRow(new Object[] {
+                            st != null ? st : String.valueOf(sk.skillId),
+                            String.valueOf(sk.skillLevel),
+                            String.valueOf(sk.cooldown)
+                    });
+                }
+            }
+        } finally {
+            isUpdatingUi = prev;
+        }
+        loadPartPositions();
+    }
+
+    private void cancelSkillEditing() {
+        if (skillTable.isEditing()) {
+            skillTable.getCellEditor().cancelCellEditing();
         }
     }
 
     private void saveCurrentFormValues() {
+        // Commit the active cell before reading the table model.
+        if (skillTable.isEditing() && !skillTable.getCellEditor().stopCellEditing()) {
+            throw new IllegalStateException("Vui lòng hoàn tất ô kỹ năng đang sửa trước khi lưu.");
+        }
         if (currentBoss == null || currentBoss.forms == null || currentFormIdx < 0 || currentFormIdx >= currentBoss.forms.size()) {
             return;
         }
@@ -927,6 +945,22 @@ public class CreateBossScr extends JInternalFrame {
             }
             form.skills.add(new BossSkillConfig(skillId, level, cd));
         }
+
+        // Update dropdown item text to reflect modified form name
+        if (currentFormIdx >= 0 && currentFormIdx < cboForms.getItemCount()) {
+            String newLabel = String.format("Dạng %d: %s", currentFormIdx, form.name != null && !form.name.isEmpty() ? form.name : "");
+            if (!newLabel.equals(cboForms.getItemAt(currentFormIdx))) {
+                boolean prevUpdating = isUpdatingUi;
+                isUpdatingUi = true;
+                try {
+                    cboForms.removeItemAt(currentFormIdx);
+                    cboForms.insertItemAt(newLabel, currentFormIdx);
+                    cboForms.setSelectedIndex(currentFormIdx);
+                } finally {
+                    isUpdatingUi = prevUpdating;
+                }
+            }
+        }
     }
 
     private void addNewForm() {
@@ -984,20 +1018,21 @@ public class CreateBossScr extends JInternalFrame {
         headFrames.clear();
         bodyFrames.clear();
         legFrames.clear();
-        if (selectedHeadPartId > 0) loadFrames(selectedHeadPartId, "head");
-        if (selectedBodyPartId > 0) loadFrames(selectedBodyPartId, "body");
-        if (selectedLegPartId > 0) loadFrames(selectedLegPartId, "leg");
+        if (selectedHeadPartId >= 0) loadFrames(selectedHeadPartId, "head");
+        if (selectedBodyPartId >= 0) loadFrames(selectedBodyPartId, "body");
+        if (selectedLegPartId >= 0) loadFrames(selectedLegPartId, "leg");
         if (canvas != null) canvas.repaint();
     }
 
     private void loadFrames(int partId, String type) {
-        if (partId <= 0) return;
+        if (partId < 0) return;
+        final int targetPartId = partId;
         new SwingWorker<List<PartFrame>, Void>() {
             @Override
             protected List<PartFrame> doInBackground() {
                 List<PartFrame> list = new ArrayList<>();
                 try {
-                    ShopManagerDAO.PartData pd = ShopManagerDAO.gI().getPartData(partId);
+                    ShopManagerDAO.PartData pd = ShopManagerDAO.gI().getPartData(targetPartId);
                     if (pd != null && pd.data != null) {
                         JSONParser parser = new JSONParser();
                         Object obj = parser.parse(pd.data);
@@ -1026,12 +1061,22 @@ public class CreateBossScr extends JInternalFrame {
             protected void done() {
                 try {
                     List<PartFrame> res = get();
-                    if (type.equals("head"))
-                        headFrames.addAll(res);
-                    else if (type.equals("body"))
-                        bodyFrames.addAll(res);
-                    else
-                        legFrames.addAll(res);
+                    if (type.equals("head")) {
+                        if (selectedHeadPartId == targetPartId) {
+                            headFrames.clear();
+                            headFrames.addAll(res);
+                        }
+                    } else if (type.equals("body")) {
+                        if (selectedBodyPartId == targetPartId) {
+                            bodyFrames.clear();
+                            bodyFrames.addAll(res);
+                        }
+                    } else if (type.equals("leg")) {
+                        if (selectedLegPartId == targetPartId) {
+                            legFrames.clear();
+                            legFrames.addAll(res);
+                        }
+                    }
                     if (canvas != null) canvas.repaint();
                 } catch (Exception ignored) {
                 }
@@ -1179,7 +1224,8 @@ public class CreateBossScr extends JInternalFrame {
     }
 
         private void onPartTextUpdated() {
-        if (isUpdatingUi) return;
+        if (isUpdatingUi || currentBoss == null || currentBoss.forms == null) return;
+        if (currentFormIdx < 0 || currentFormIdx >= currentBoss.forms.size()) return;
         try {
             String h = txtOutfitHead != null ? txtOutfitHead.getText().trim() : "";
             selectedHeadPartId = h.isEmpty() ? -1 : Integer.parseInt(h);
@@ -1198,54 +1244,81 @@ public class CreateBossScr extends JInternalFrame {
         } catch (Exception ignored) {
             selectedLegPartId = -1;
         }
+
+        // CHỈ cập nhật vào dạng hiện tại
+        BossFormConfig activeForm = currentBoss.forms.get(currentFormIdx);
+        activeForm.outfitHead = (short) selectedHeadPartId;
+        activeForm.outfitBody = (short) selectedBodyPartId;
+        activeForm.outfitLeg = (short) selectedLegPartId;
+
         updateOutfitLabel();
-        saveCurrentFormValues();
         loadPartPositions();
     }
 
     private void selectOutfit(String type) {
+        if (currentBoss == null || currentBoss.forms == null || currentFormIdx < 0 || currentFormIdx >= currentBoss.forms.size()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn hoặc tạo dạng (Form) cho Boss trước!");
+            return;
+        }
         OutfitSelectorDialog dialog = new OutfitSelectorDialog(type);
         dialog.setVisible(true);
         if (dialog.getSelectedId() >= 0) {
             int sel = dialog.getSelectedId();
             isUpdatingUi = true;
-            if (type.equals("head")) {
-                selectedHeadPartId = sel;
-                if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(sel));
-            } else if (type.equals("body")) {
-                selectedBodyPartId = sel;
-                if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(sel));
-            } else {
-                selectedLegPartId = sel;
-                if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(sel));
+            try {
+                BossFormConfig activeForm = currentBoss.forms.get(currentFormIdx);
+                if (type.equals("head")) {
+                    selectedHeadPartId = sel;
+                    activeForm.outfitHead = (short) sel;
+                    if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(sel));
+                } else if (type.equals("body")) {
+                    selectedBodyPartId = sel;
+                    activeForm.outfitBody = (short) sel;
+                    if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(sel));
+                } else {
+                    selectedLegPartId = sel;
+                    activeForm.outfitLeg = (short) sel;
+                    if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(sel));
+                }
+            } finally {
+                isUpdatingUi = false;
             }
-            isUpdatingUi = false;
             updateOutfitLabel();
-            saveCurrentFormValues();
             loadPartPositions();
         }
     }
 
     private void openSkinSelectorDialog() {
+        if (currentBoss == null || currentBoss.forms == null || currentFormIdx < 0 || currentFormIdx >= currentBoss.forms.size()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn hoặc tạo dạng (Form) cho Boss trước!");
+            return;
+        }
         SkinSelectorDialog dialog = new SkinSelectorDialog();
         dialog.setVisible(true);
         ShopManagerDAO.CaiTrangTemplate sel = dialog.getSelectedSkin();
         if (sel != null) {
             isUpdatingUi = true;
-            selectedHeadPartId = sel.head;
-            selectedBodyPartId = sel.body;
-            selectedLegPartId = sel.leg;
-            if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(sel.head));
-            if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(sel.body));
-            if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(sel.leg));
-            isUpdatingUi = false;
+            try {
+                selectedHeadPartId = sel.head;
+                selectedBodyPartId = sel.body;
+                selectedLegPartId = sel.leg;
+                if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(sel.head));
+                if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(sel.body));
+                if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(sel.leg));
+
+                // CHỈ cập nhật vào dạng hiện tại
+                BossFormConfig activeForm = currentBoss.forms.get(currentFormIdx);
+                activeForm.outfitHead = (short) sel.head;
+                activeForm.outfitBody = (short) sel.body;
+                activeForm.outfitLeg = (short) sel.leg;
+            } finally {
+                isUpdatingUi = false;
+            }
             updateOutfitLabel();
-            saveCurrentFormValues();
             loadPartPositions();
         }
     }
 
-    // Dialog chọn Boss đi cùng
     private void openBossTogetherSelectorDialog() {
         int myBossId = 0;
         try {
