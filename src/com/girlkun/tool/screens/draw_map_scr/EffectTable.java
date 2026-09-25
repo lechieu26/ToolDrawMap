@@ -33,6 +33,7 @@ public class EffectTable extends JFrame {
    private DefaultTableModel model1;
    private DefaultTableModel model2;
    private int indexBE = -1;
+   private List<EffectTemplate> templates = new ArrayList<>();
    private List<Integer> listBE = new ArrayList<>();
    private Button button1;
    private JLabel jLabel2;
@@ -171,21 +172,21 @@ public class EffectTable extends JFrame {
    private void tbl1MouseClicked(MouseEvent evt) {
       int index = this.tbl1.getSelectedRow();
       if (index != -1) {
-         this.drawMapScr.setEffectTemplateChose(Manager.gI().getEffectTemplates().get(index));
+         this.drawMapScr.setEffectTemplateChose(this.templates.get(index));
       }
    }
 
    private void tbl1KeyPressed(KeyEvent evt) {
       int index = this.tbl1.getSelectedRow();
       if (index != -1) {
-         this.drawMapScr.setEffectTemplateChose(Manager.gI().getEffectTemplates().get(index));
+         this.drawMapScr.setEffectTemplateChose(this.templates.get(index));
       }
    }
 
    private void tbl1KeyReleased(KeyEvent evt) {
       int index = this.tbl1.getSelectedRow();
       if (index != -1) {
-         this.drawMapScr.setEffectTemplateChose(Manager.gI().getEffectTemplates().get(index));
+         this.drawMapScr.setEffectTemplateChose(this.templates.get(index));
       }
    }
 
@@ -222,14 +223,27 @@ public class EffectTable extends JFrame {
    }
 
    public void load() {
-      this.fillToTable();
+      new javax.swing.SwingWorker<Void, Void>() {
+         @Override
+         protected Void doInBackground() {
+            Manager.gI().loadEffectTemplate();
+            return null;
+         }
+
+         @Override
+         protected void done() {
+            fillToTable();
+         }
+      }.execute();
    }
 
    private void fillToTable() {
       this.model1.setRowCount(0);
       this.model2.setRowCount(0); // Also clear model2 for consistency
 
-      for (EffectTemplate eff : Manager.gI().getEffectTemplates()) {
+      this.templates = new ArrayList<>(Manager.gI().getEffectTemplates());
+      this.indexBE = -1;
+      for (EffectTemplate eff : this.templates) {
          this.model1.addRow(new Object[]{eff.getId(), eff.getId()});
       }
 
@@ -285,7 +299,7 @@ public class EffectTable extends JFrame {
                Image var12 = Util.getImageBEffectByType(Integer.parseInt(vl.replaceAll("beff-", "")));
                image = var12.getScaledInstance(20, 72, 4);
             } else {
-               Image var14 = Util.getImageEffectById(Integer.parseInt(vl));
+               Image var14 = templates.get(table.convertRowIndexToModel(row)).getFrame(0);
                image = var14.getScaledInstance(40, 40, 4);
             }
 

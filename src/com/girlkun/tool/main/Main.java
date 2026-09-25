@@ -189,6 +189,15 @@ public class Main extends JFrame {
         btnImageScaler.addActionListener(this::btnImageScalerActionPerformed);
         jToolBar1.add(btnImageScaler);
 
+        JButton btnIndexedConverter = new JButton("Indexed Converter");
+        btnIndexedConverter.setBackground(new Color(37, 99, 235));
+        btnIndexedConverter.setForeground(Color.WHITE);
+        btnIndexedConverter.setFocusable(false);
+        btnIndexedConverter.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnIndexedConverter.setMaximumSize(new Dimension(Short.MAX_VALUE, 45));
+        btnIndexedConverter.addActionListener(evt -> openIndexedConverter());
+        jToolBar1.add(btnIndexedConverter);
+
         btnTeaShopManager = new JButton();
         btnTeaShopManager.setBackground(new Color(204, 51, 102));
         btnTeaShopManager.setForeground(Color.WHITE);
@@ -413,6 +422,34 @@ public class Main extends JFrame {
             scr.setSelected(true);
         } catch (java.beans.PropertyVetoException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void openIndexedConverter() {
+        try {
+            // Support IDE, dist JAR and packaged app launches, including paths with spaces.
+            java.io.File codeLocation = new java.io.File(
+                    Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            java.io.File[] roots = {new java.io.File(System.getProperty("user.dir")),
+                codeLocation.isDirectory() ? codeLocation : codeLocation.getParentFile()};
+            for (java.io.File root : roots) {
+                for (int level = 0; root != null && level < 4; level++, root = root.getParentFile()) {
+                    java.io.File executable = new java.io.File(root,
+                            "external tools/ConvertImgToIndexedMode.exe");
+                    if (executable.isFile()) {
+                        new ProcessBuilder(executable.getAbsolutePath())
+                                .directory(executable.getParentFile()).start();
+                        return;
+                    }
+                }
+            }
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Không tìm thấy external tools/ConvertImgToIndexedMode.exe",
+                    "Indexed Converter", javax.swing.JOptionPane.ERROR_MESSAGE);
+        } catch (Exception error) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Không thể mở Indexed Converter: " + error.getMessage(),
+                    "Indexed Converter", javax.swing.JOptionPane.ERROR_MESSAGE);
         }
     }
 

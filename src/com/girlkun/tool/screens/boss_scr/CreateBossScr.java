@@ -88,7 +88,7 @@ public class CreateBossScr extends JInternalFrame {
     private JTextField txtMapJoin, txtBossesTogether, txtRequireTaskId, txtExtraConfig;
     private JLabel lblTogetherPreview;
     private JComboBox<String> cboBossType, cboGender;
-    private JCheckBox chkEnabled, chkNotify, chkZone01Disabled;
+    private JCheckBox chkEnabled, chkNotify, chkZone01Disabled, chkSingleBossForms;
 
     // UI Components - Forms
     private JComboBox<String> cboForms;
@@ -475,6 +475,9 @@ public class CreateBossScr extends JInternalFrame {
         chkNotify = new JCheckBox("Thông báo khi boss xuất hiện / chết", true);
         chkNotify.setToolTipText("Thông báo toàn server (is_notify)");
         addBossHeaderField(identity, 7, null, chkNotify);
+        chkSingleBossForms = new JCheckBox("Một boss nhiều dạng");
+        chkSingleBossForms.setToolTipText("Boss chuyển sang dạng kế tiếp ở ngưỡng 30% HP nếu còn dạng.");
+        addBossHeaderField(identity, 8, null, chkSingleBossForms);
 
         JPanel mapPnl = new JPanel(new BorderLayout(4, 0));
         txtMapJoin = new JTextField("5");
@@ -716,6 +719,7 @@ public class CreateBossScr extends JInternalFrame {
             txtExtraConfig.setText(boss.extraConfig != null ? boss.extraConfig : "");
 
             chkEnabled.setSelected(boss.enabled);
+            chkSingleBossForms.setSelected(boss.singleBossForms);
             chkNotify.setSelected(boss.isNotify);
             chkZone01Disabled.setSelected(boss.isZone01SpawnDisabled);
 
@@ -1116,6 +1120,7 @@ public class CreateBossScr extends JInternalFrame {
             currentBoss.subType = txtSubType.getText().trim();
             currentBoss.gender = (byte) cboGender.getSelectedIndex();
             currentBoss.enabled = chkEnabled.isSelected();
+            currentBoss.singleBossForms = chkSingleBossForms.isSelected();
             currentBoss.isNotify = chkNotify.isSelected();
             currentBoss.isZone01SpawnDisabled = chkZone01Disabled.isSelected();
 
@@ -1402,6 +1407,7 @@ public class CreateBossScr extends JInternalFrame {
         btnOk.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnOk.setPreferredSize(new Dimension(0, 38));
         btnOk.addActionListener(e -> {
+            if (table.isEditing() && !table.getCellEditor().stopCellEditing()) return;
             List<Integer> list = new ArrayList<>(selectedIds);
             Collections.sort(list);
             List<String> sList = new ArrayList<>();

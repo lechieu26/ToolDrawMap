@@ -5,6 +5,9 @@
 !/src/
 !/lib/
 !/nbproject/
+!/tools/
+/tools/*
+!/tools/ConvertImgToIndexedMode/
 
 # Unignore specific root files
 !build.xml

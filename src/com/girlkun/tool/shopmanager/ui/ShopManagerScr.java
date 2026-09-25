@@ -18,6 +18,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.Calendar;
+import java.util.Locale;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class ShopManagerScr extends JInternalFrame {
 
@@ -63,6 +66,8 @@ public class ShopManagerScr extends JInternalFrame {
     private JLabel lblItemStatus;
 
     private JComboBox<ItemOptionTemplate> cbItemOption;
+    private JTextField txtFindOption;
+    private List<ItemOptionTemplate> itemOptionTemplates;
     private JTextField txtOptionParam;
     private JTable tblOptions;
     private DefaultTableModel modelOptions;
@@ -716,12 +721,30 @@ public class ShopManagerScr extends JInternalFrame {
         JPanel optPanel = new JPanel(new BorderLayout());
         optPanel.setBorder(BorderFactory.createTitledBorder("Item option"));
 
-        JPanel optControls = new JPanel(new GridLayout(2, 1, 5, 5));
+        JPanel optControls = new JPanel(new GridLayout(3, 1, 5, 5));
+
+        JPanel searchRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        txtFindOption = new JTextField(24);
+        txtFindOption.setToolTipText("Tìm option theo ID hoặc tên");
+        searchRow.add(new JLabel("Tìm option (ID / tên):"));
+        searchRow.add(txtFindOption);
 
         // Row 1: Combo + Param
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT));
         cbItemOption = new JComboBox<>();
         cbItemOption.setPreferredSize(new Dimension(200, 30));
+        cbItemOption.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof ItemOptionTemplate) {
+                    ItemOptionTemplate option = (ItemOptionTemplate) value;
+                    setText(option.id + ": " + option.name);
+                }
+                return this;
+            }
+        });
         txtOptionParam = new JTextField(10);
         txtOptionParam.setPreferredSize(new Dimension(100, 30));
 
@@ -750,9 +773,21 @@ public class ShopManagerScr extends JInternalFrame {
         btnSaveDb.setPreferredSize(new Dimension(100, 30));
 
         // Load Option Templates
-        for (ItemOptionTemplate opt : dao.getItemOptionTemplates()) {
-            cbItemOption.addItem(opt);
-        }
+        itemOptionTemplates = dao.getItemOptionTemplates();
+        filterItemOptions();
+        txtFindOption.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) {
+                filterItemOptions();
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                filterItemOptions();
+            }
+
+            public void changedUpdate(DocumentEvent e) {
+                filterItemOptions();
+            }
+        });
 
         btnAddOpt.addActionListener(e -> addOption());
         btnEditOpt.addActionListener(e -> updateOption());
@@ -764,6 +799,7 @@ public class ShopManagerScr extends JInternalFrame {
         row2.add(btnDelOpt);
         row2.add(btnSaveDb);
 
+        optControls.add(searchRow);
         optControls.add(row1);
         optControls.add(row2);
 
@@ -780,6 +816,8 @@ public class ShopManagerScr extends JInternalFrame {
                     DisplayItem.ItemOptionDisplay opt = currentDisplayItems.get(selectedItemIdx).options.get(row);
                     txtOptionParam.setText(String.valueOf(opt.param));
                     // Select combo
+                    txtFindOption.setText("");
+                    cbItemOption.setSelectedIndex(-1);
                     for (int i = 0; i < cbItemOption.getItemCount(); i++) {
                         if (cbItemOption.getItemAt(i).id == opt.id) {
                             cbItemOption.setSelectedIndex(i);
@@ -798,6 +836,22 @@ public class ShopManagerScr extends JInternalFrame {
 
         p.add(split, BorderLayout.CENTER);
         return p;
+    }
+
+    private void filterItemOptions() {
+        String query = txtFindOption.getText().trim().toLowerCase(Locale.ROOT);
+        ItemOptionTemplate selected = (ItemOptionTemplate) cbItemOption.getSelectedItem();
+        DefaultComboBoxModel<ItemOptionTemplate> model = new DefaultComboBoxModel<>();
+        for (ItemOptionTemplate option : itemOptionTemplates) {
+            if (String.valueOf(option.id).contains(query)
+                    || (option.name != null && option.name.toLowerCase(Locale.ROOT).contains(query))) {
+                model.addElement(option);
+            }
+        }
+        if (selected != null && model.getIndexOf(selected) >= 0) {
+            model.setSelectedItem(selected);
+        }
+        cbItemOption.setModel(model);
     }
 
     private GridBagConstraints mkGbc(int y) {

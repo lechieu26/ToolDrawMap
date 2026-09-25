@@ -197,7 +197,7 @@ public class CreateNPCScr extends JInternalFrame {
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Tạo NPC Mới",
                 Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setLayout(new BorderLayout(10, 10));
-        dialog.setSize(350, 200);
+        dialog.setSize(600, 550);
         dialog.setLocationRelativeTo(this);
 
         JPanel contentPanel = new JPanel(new GridLayout(3, 1, 5, 5));
@@ -225,7 +225,9 @@ public class CreateNPCScr extends JInternalFrame {
         lblNote.setForeground(Color.GRAY);
         contentPanel.add(lblNote);
 
-        dialog.add(contentPanel, BorderLayout.CENTER);
+        ChatEditor chatEditor = new ChatEditor("[]", 5);
+        dialog.add(contentPanel, BorderLayout.NORTH);
+        dialog.add(chatEditor, BorderLayout.CENTER);
 
         // Buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -269,7 +271,8 @@ public class CreateNPCScr extends JInternalFrame {
 
             // Save to DB
             try {
-                ShopManagerDAO.gI().addNewNpc(nextId[0], name);
+                ShopManagerDAO.gI().addNewNpc(nextId[0], name, chatEditor.getChatJson(),
+                        chatEditor.getIntervalSeconds());
                 dialog.dispose();
                 JOptionPane.showMessageDialog(this, "Tạo NPC thành công!", "Thông báo",
                         JOptionPane.INFORMATION_MESSAGE);
@@ -284,6 +287,128 @@ public class CreateNPCScr extends JInternalFrame {
         });
 
         dialog.setVisible(true);
+    }
+
+    private void showNpcChatDialog() {
+        if (currentNpc == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn NPC trước!");
+            return;
+        }
+        final NpcFullInfo npc = currentNpc;
+        final ChatEditor editor;
+        try {
+            editor = new ChatEditor(npc.chat, npc.chatIntervalSeconds);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi dữ liệu chat", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this),
+                "Chat NPC: " + npc.name + " (ID: " + npc.id + ")", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.add(editor, BorderLayout.CENTER);
+        JButton save = new JButton("Lưu chat");
+        save.addActionListener(e -> {
+            try {
+                String chat = editor.getChatJson();
+                int interval = editor.getIntervalSeconds();
+                ShopManagerDAO.gI().updateNpcChat(npc.id, chat, interval);
+                npc.chat = chat;
+                npc.chatIntervalSeconds = interval;
+                dialog.dispose();
+                JOptionPane.showMessageDialog(this, "Đã lưu chat NPC thành công!");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        JButton cancel = new JButton("Hủy");
+        cancel.addActionListener(e -> dialog.dispose());
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttons.add(cancel);
+        buttons.add(save);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        dialog.setSize(600, 500);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private static class ChatEditor extends JPanel {
+        private final JPanel messages = new JPanel();
+        private final java.util.List<JTextArea> fields = new java.util.ArrayList<>();
+        private final JSpinner interval;
+
+        ChatEditor(String json, int seconds) {
+            super(new BorderLayout(5, 5));
+            setBorder(new EmptyBorder(10, 10, 10, 10));
+            interval = new JSpinner(new SpinnerNumberModel(Math.max(0, seconds), 0, Integer.MAX_VALUE, 1));
+            JPanel settings = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            settings.add(new JLabel("Thời gian giữa các lần chat (giây):"));
+            settings.add(interval);
+            add(settings, BorderLayout.NORTH);
+            messages.setLayout(new BoxLayout(messages, BoxLayout.Y_AXIS));
+            add(new JScrollPane(messages), BorderLayout.CENTER);
+            JButton addMessage = new JButton("Thêm câu thoại");
+            addMessage.addActionListener(e -> addMessage(""));
+            JPanel footer = new JPanel(new BorderLayout(5, 5));
+            footer.add(new JLabel("Mỗi ô là một câu thoại; Enter để xuống dòng. Xóa hết để bỏ chat."), BorderLayout.CENTER);
+            footer.add(addMessage, BorderLayout.SOUTH);
+            add(footer, BorderLayout.SOUTH);
+            try {
+                Object parsed = new JSONParser().parse(json == null || json.trim().isEmpty() ? "[]" : json);
+                if (!(parsed instanceof JSONArray)) {
+                    throw new IllegalArgumentException();
+                }
+                for (Object value : (JSONArray) parsed) {
+                    if (!(value instanceof String)) {
+                        throw new IllegalArgumentException();
+                    }
+                    addMessage((String) value);
+                }
+            } catch (Exception ex) {
+                throw new IllegalArgumentException("Chat trong DB phải là mảng JSON chứa các chuỗi văn bản.", ex);
+            }
+        }
+
+        private void addMessage(String text) {
+            JTextArea field = new JTextArea(text, 3, 30);
+            field.setLineWrap(true);
+            field.setWrapStyleWord(true);
+            fields.add(field);
+            JPanel row = new JPanel(new BorderLayout(5, 5));
+            row.setBorder(BorderFactory.createTitledBorder("Câu thoại"));
+            row.add(new JScrollPane(field), BorderLayout.CENTER);
+            JButton remove = new JButton("Xóa");
+            remove.addActionListener(e -> {
+                fields.remove(field);
+                messages.remove(row);
+                messages.revalidate();
+                messages.repaint();
+            });
+            row.add(remove, BorderLayout.EAST);
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 130));
+            messages.add(row);
+            messages.revalidate();
+            messages.repaint();
+        }
+
+        @SuppressWarnings("unchecked")
+        String getChatJson() {
+            JSONArray values = new JSONArray();
+            for (JTextArea field : fields) {
+                if (field.getText().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Câu thoại không được để trống. Hãy nhập nội dung hoặc xóa ô trống.");
+                }
+                values.add(field.getText());
+            }
+            return values.toJSONString();
+        }
+
+        int getIntervalSeconds() {
+            try {
+                interval.commitEdit();
+            } catch (java.text.ParseException ex) {
+                throw new IllegalArgumentException("Thời gian chat phải là số nguyên không âm.", ex);
+            }
+            return ((Number) interval.getValue()).intValue();
+        }
     }
 
     private void showRenameNpcDialog() {
@@ -455,8 +580,10 @@ public class CreateNPCScr extends JInternalFrame {
         btnPanel.add(btnNewNpc);
         btnPanel.add(btnRenameNpc);
 
-        // Update layout to 3 rows
-        btnPanel.setLayout(new GridLayout(3, 1, 5, 5));
+        JButton btnChat = new JButton("Chat NPC");
+        btnChat.addActionListener(e -> showNpcChatDialog());
+        btnPanel.add(btnChat);
+        btnPanel.setLayout(new GridLayout(4, 1, 5, 5));
 
         panel.add(btnPanel, BorderLayout.SOUTH);
 

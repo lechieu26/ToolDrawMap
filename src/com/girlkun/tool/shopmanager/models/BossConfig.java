@@ -10,6 +10,7 @@ public class BossConfig {
     public String bossType = "NORMAL"; // NORMAL, TASK, EVENT, DUNGEON, PHOBAN, MINI, FINAL
     public String subType = "DEFAULT";
     public boolean enabled = true;
+    public boolean singleBossForms;
     public int spawnCount = 1;
     public int respawnDelay = 300; // seconds
     public int despawnTimeout = 900; // seconds

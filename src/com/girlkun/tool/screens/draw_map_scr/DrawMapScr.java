@@ -1816,6 +1816,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.effectTable = new EffectTable(this);
       }
 
+      this.effectTable.load();
       this.effectTable.setVisible(true);
    }
 

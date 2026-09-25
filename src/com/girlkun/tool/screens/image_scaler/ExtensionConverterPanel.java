@@ -7,10 +7,16 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Locale;
 
 public class ExtensionConverterPanel extends JPanel {
     private static final Color BG_COLOR = new Color(0x1a1a2e);
@@ -49,14 +55,18 @@ public class ExtensionConverterPanel extends JPanel {
         btnPanel.setOpaque(false);
 
         JButton btnChoose = createStyledButton("Chọn ảnh", SUCCESS_COLOR);
+        JButton btnChooseFolder = createStyledButton("Chọn folder", SUCCESS_COLOR);
+        btnChooseFolder.setEnabled(false);
         JButton btnClear = createStyledButton("Clear All", DANGER_COLOR);
         JButton btnOpen = createStyledButton("Open Output", WARNING_COLOR);
 
         btnChoose.addActionListener(e -> chooseFiles());
+        btnChooseFolder.addActionListener(e -> chooseFolder());
         btnClear.addActionListener(e -> clearAll());
         btnOpen.addActionListener(e -> openOutputFolder());
 
         btnPanel.add(btnChoose);
+        btnPanel.add(btnChooseFolder);
         btnPanel.add(btnClear);
         btnPanel.add(btnOpen);
 
@@ -67,6 +77,7 @@ public class ExtensionConverterPanel extends JPanel {
         reverseCheckBox.setOpaque(false);
         reverseCheckBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         reverseCheckBox.addActionListener(e -> {
+            btnChooseFolder.setEnabled(reverseCheckBox.isSelected());
             clearAll(); // Clear list when changing mode to avoid confusion
         });
         optionsPanel.add(reverseCheckBox);
@@ -206,6 +217,158 @@ public class ExtensionConverterPanel extends JPanel {
         }
     }
 
+    private void chooseFolder() {
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            chooseWindowsFolder();
+            return;
+        }
+        JFileChooser chooser = new JFileChooser(lastImagesFolder);
+        chooser.setDialogTitle("Chọn folder chứa ảnh PNG");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        addFolder(chooser.getSelectedFile());
+    }
+
+    private void chooseWindowsFolder() {
+        String initialFolder = lastImagesFolder == null ? "" : lastImagesFolder.getAbsolutePath();
+        long ownerPid = ProcessHandle.current().pid();
+        new SwingWorker<File, Void>() {
+            @Override
+            protected File doInBackground() throws Exception {
+                // Encode the script so Windows command-line quoting cannot strip C# string quotes.
+                String script = Base64.getEncoder().encodeToString(
+                        WINDOWS_FOLDER_PICKER.getBytes(StandardCharsets.UTF_16LE));
+                ProcessBuilder builder = new ProcessBuilder("powershell.exe", "-NoProfile", "-STA",
+                        "-WindowStyle", "Hidden", "-EncodedCommand", script);
+                builder.environment().put("CONVERTER_INITIAL_FOLDER", initialFolder);
+                builder.environment().put("CONVERTER_OWNER_PID", Long.toString(ownerPid));
+                String result = readPickerResult(builder);
+                if (result.isEmpty()) return null;
+                File folder = new File(result);
+                if (!folder.isDirectory()) throw new IOException("Thư mục không hợp lệ: " + result);
+                return folder;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    File folder = get();
+                    if (folder != null && reverseCheckBox.isSelected()) addFolder(folder);
+                } catch (Exception e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    JOptionPane.showMessageDialog(ExtensionConverterPanel.this,
+                            "Không thể mở hộp chọn thư mục Windows: " + cause.getMessage(),
+                            "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    static String readPickerResult(ProcessBuilder builder) throws IOException, InterruptedException {
+        // PowerShell writes progress/CLIXML to stderr; stdout contains only the selected path.
+        // Redirect stderr to a file so it cannot corrupt the path or fill a pipe while we wait.
+        Path errorFile = Files.createTempFile("explorer-picker-", ".log");
+        Process process = null;
+        try {
+            builder.redirectErrorStream(false);
+            builder.redirectError(errorFile.toFile());
+            process = builder.start();
+            String result = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                String error = Files.readString(errorFile, StandardCharsets.UTF_8).trim();
+                throw new IOException(error.isEmpty() ? "PowerShell exit code: " + exitCode : error);
+            }
+            return result;
+        } finally {
+            if (process != null && process.isAlive()) process.destroyForcibly().waitFor();
+            Files.deleteIfExists(errorFile);
+        }
+    }
+
+    // IFileDialog with FOS_PICKFOLDERS uses the same Explorer UI as the native file picker.
+    private static final String WINDOWS_FOLDER_PICKER = """
+            $ErrorActionPreference = 'Stop'
+            $ProgressPreference = 'SilentlyContinue'
+            [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+            Add-Type -TypeDefinition @'
+            using System;
+            using System.Runtime.InteropServices;
+            public static class ExplorerFolderPicker {
+                [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+                interface IFileDialog {
+                    [PreserveSig] int Show(IntPtr owner);
+                    void SetFileTypes(uint count, IntPtr types);
+                    void SetFileTypeIndex(uint index);
+                    void GetFileTypeIndex(out uint index);
+                    void Advise(IntPtr events, out uint cookie);
+                    void Unadvise(uint cookie);
+                    void SetOptions(uint options);
+                    void GetOptions(out uint options);
+                    void SetDefaultFolder(IShellItem folder);
+                    void SetFolder(IShellItem folder);
+                    void GetFolder(out IShellItem folder);
+                    void GetCurrentSelection(out IShellItem item);
+                    void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string name);
+                    void GetFileName(out IntPtr name);
+                    void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string title);
+                    void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string label);
+                    void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string label);
+                    void GetResult(out IShellItem item);
+                }
+                [ComImport, Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+                interface IShellItem {
+                    void BindToHandler(IntPtr context, ref Guid handler, ref Guid iid, out IntPtr result);
+                    void GetParent(out IShellItem parent);
+                    void GetDisplayName(uint format, out IntPtr name);
+                    void GetAttributes(uint mask, out uint attributes);
+                    void Compare(IShellItem item, uint hint, out int order);
+                }
+                [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+                static extern void SHCreateItemFromParsingName(string path, IntPtr context, ref Guid iid, out IShellItem item);
+                public static string Pick(IntPtr owner, string initialFolder) {
+                    var dialog = (IFileDialog)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7")));
+                    try {
+                        uint options;
+                        dialog.GetOptions(out options);
+                        dialog.SetOptions(options | 0x20u | 0x40u | 0x800u);
+                        dialog.SetTitle("Select PNG folder");
+                        if (System.IO.Directory.Exists(initialFolder)) {
+                            IShellItem initial;
+                            Guid iid = typeof(IShellItem).GUID;
+                            SHCreateItemFromParsingName(initialFolder, IntPtr.Zero, ref iid, out initial);
+                            try { dialog.SetFolder(initial); }
+                            finally { Marshal.ReleaseComObject(initial); }
+                        }
+                        int result = dialog.Show(owner);
+                        if (result == unchecked((int)0x800704C7)) return null;
+                        Marshal.ThrowExceptionForHR(result);
+                        IShellItem selected;
+                        dialog.GetResult(out selected);
+                        try {
+                            IntPtr path;
+                            selected.GetDisplayName(0x80058000u, out path);
+                            try { return Marshal.PtrToStringUni(path); }
+                            finally { Marshal.FreeCoTaskMem(path); }
+                        } finally { Marshal.ReleaseComObject(selected); }
+                    } finally { Marshal.ReleaseComObject(dialog); }
+                }
+            }
+            '@
+            $owner = (Get-Process -Id $env:CONVERTER_OWNER_PID).MainWindowHandle
+            $folder = [ExplorerFolderPicker]::Pick($owner, $env:CONVERTER_INITIAL_FOLDER)
+            if ($null -ne $folder) { [Console]::Write($folder) }
+            """;
+
+    private void addFolder(File folder) {
+        for (int i = 0; i < listModel.size(); i++) {
+            if (listModel.get(i).file.equals(folder)) return;
+        }
+        listModel.addElement(new FileItem(folder));
+        lastImagesFolder = folder;
+        updateStatus();
+    }
+
     private void clearAll() {
         if (!listModel.isEmpty()) {
             listModel.clear();
@@ -215,7 +378,7 @@ public class ExtensionConverterPanel extends JPanel {
 
     private void updateStatus() {
         int count = listModel.size();
-        statusLabel.setText(count > 0 ? "Đã chọn " + count + " ảnh" : "Chưa có ảnh nào được chọn");
+        statusLabel.setText(count > 0 ? "Đã chọn " + count + " ảnh/folder" : "Chưa có ảnh nào được chọn");
     }
 
     private void deleteSelected() {
@@ -230,7 +393,7 @@ public class ExtensionConverterPanel extends JPanel {
         if (listModel.isEmpty()) return;
 
         int count = listModel.size();
-        int confirm = JOptionPane.showConfirmDialog(this, "Convert " + count + " file?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Convert " + count + " ảnh/folder (bao gồm các folder con)?", "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
         if (!outputDir.exists()) {
@@ -243,11 +406,15 @@ public class ExtensionConverterPanel extends JPanel {
         try {
             for (int i = 0; i < count; i++) {
                 File oldFile = listModel.get(i).file;
+                if (isReverse && oldFile.isDirectory()) {
+                    successCount += convertFolder(oldFile.toPath(), outputDir.toPath().resolve("renamed"));
+                    continue;
+                }
                 String oldName = oldFile.getName();
                 String newName;
 
                 if (isReverse) {
-                    if (oldName.toLowerCase().endsWith(".png")) {
+                    if (oldName.toLowerCase(Locale.ROOT).endsWith(".png")) {
                         newName = oldName.substring(0, oldName.length() - 4);
                     } else {
                         newName = oldName;
@@ -269,6 +436,39 @@ public class ExtensionConverterPanel extends JPanel {
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Lỗi khi convert: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    static int convertFolder(Path source, Path renamedDir) throws IOException {
+        Path root = source.toRealPath();
+        Path renamed = renamedDir.toAbsolutePath().normalize();
+        Path destination = renamed.resolve(root.getFileName() == null ? "root" : root.getFileName().toString());
+        if (root.startsWith(renamed)) {
+            throw new IOException("Folder nguồn không được nằm trong folder đầu ra: " + renamed);
+        }
+        int[] copied = {0};
+        Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                // Do not scan generated output when the selected root contains it.
+                if (dir.startsWith(renamed)) return FileVisitResult.SKIP_SUBTREE;
+                Files.createDirectories(destination.resolve(root.relativize(dir)));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                String name = file.getFileName().toString();
+                if (attrs.isRegularFile() && name.toLowerCase(Locale.ROOT).endsWith(".png")) {
+                    String newName = name.substring(0, name.length() - 4);
+                    if (newName.isEmpty()) throw new IOException("Tên file không hợp lệ: " + file);
+                    Path target = destination.resolve(root.relativize(file)).resolveSibling(newName);
+                    Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+                    copied[0]++;
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        return copied[0];
     }
 
     private void openOutputFolder() {
@@ -294,7 +494,10 @@ public class ExtensionConverterPanel extends JPanel {
 
         private void createThumbnail() {
             try {
-                BufferedImage img = ImageIO.read(file);
+                File imageFile = file.isDirectory()
+                        ? new File(System.getProperty("user.dir"), "data/tool_icons/Folder.png")
+                        : file;
+                BufferedImage img = ImageIO.read(imageFile);
                 if (img != null) {
                     int w = img.getWidth();
                     int h = img.getHeight();
@@ -339,7 +542,8 @@ public class ExtensionConverterPanel extends JPanel {
 
             if (value != null) {
                 iconLabel.setIcon(value.thumbnail);
-                iconLabel.setText(value.thumbnail == null ? "N/A" : "");
+                iconLabel.setText(value.thumbnail == null ? (value.file.isDirectory() ? "Folder" : "N/A") : "");
+                setToolTipText(value.file.getAbsolutePath());
                 String name = value.file.getName();
                 if (name.length() > 12) name = name.substring(0, 9) + "..";
                 textLabel.setText(name);

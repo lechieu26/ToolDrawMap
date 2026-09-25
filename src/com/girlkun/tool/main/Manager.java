@@ -31,7 +31,7 @@ public class Manager {
    private List<HeadAvatar> headAvatars;
    private List<BgItemTemplate> bgItemTemplates;
    private List<MobTemplate> mobTemplates;
-   private List<EffectTemplate> effectTemplates;
+   private volatile List<EffectTemplate> effectTemplates = new ArrayList<>();
    private List<MapTemplate> mapTemplates;
 
    public interface DataChangeListener {
@@ -127,78 +127,73 @@ public class Manager {
       }
    }
 
-   public void loadEffectTemplate() {
-      this.effectTemplates = new ArrayList<>();
-
-      try {
-         java.io.File effDir = new java.io.File(com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1");
-         if (effDir.exists() && effDir.isDirectory()) {
-            java.io.File[] files = effDir.listFiles();
-            if (files != null) {
-               java.util.TreeSet<Integer> idSet = new java.util.TreeSet<>();
-               for (java.io.File f : files) {
-                  try {
-                     int id = Integer.parseInt(f.getName());
-                     idSet.add(id);
-                  } catch (Exception ignored) {}
-               }
-               for (int id : idSet) {
-                  EffectTemplate eff = this.readEff(id);
-                  if (eff != null && eff.getSizeFrame() > 0) {
-                     this.effectTemplates.add(eff);
-                  }
-               }
+   public synchronized void loadEffectTemplate() {
+      List<EffectTemplate> loaded = new ArrayList<>();
+      java.io.File root = new java.io.File(com.girlkun.tool.utils.PathConfig.getDataPath());
+      java.util.TreeSet<Integer> ids = new java.util.TreeSet<>();
+      for (String directory : new String[]{"effdata/x1", "effdata"}) {
+         java.io.File[] files = new java.io.File(root, directory).listFiles();
+         if (files == null) continue;
+         for (java.io.File file : files) {
+            if (!file.isFile()) continue;
+            String name = file.getName();
+            if (directory.equals("effdata")) {
+               if (!name.startsWith("DataEffect_")) continue;
+               name = name.substring("DataEffect_".length());
             }
-         } else {
-            for (int i = 0; i < 750; i++) {
-               EffectTemplate eff = this.readEff(i);
-               if (eff != null && eff.getSizeFrame() > 0) {
-                  this.effectTemplates.add(eff);
-               }
+            try {
+               ids.add(Integer.parseInt(name));
+            } catch (NumberFormatException ignored) {
             }
          }
-
-         Logger.success("Load dữ liệu effect template thành công (" + this.effectTemplates.size() + ")\n");
-      } catch (Exception var3) {
       }
+      for (int id : ids) {
+         EffectTemplate effect = this.readEff(id);
+         if (effect != null && effect.getSizeFrame() > 0) loaded.add(effect);
+      }
+      this.effectTemplates = loaded;
+      Logger.success("Load dữ liệu effect template thành công (" + loaded.size() + ")\n");
    }
 
    public EffectTemplate readEff(int id) {
-      EffectTemplate eff = null;
-
       try {
-         java.io.File file = new java.io.File(com.girlkun.tool.utils.PathConfig.getDataPath() + "/effdata/x1/" + id);
-         if (!file.exists()) {
-            return null;
+         java.io.File root = new java.io.File(com.girlkun.tool.utils.PathConfig.getDataPath());
+         java.io.File packed = new java.io.File(root, "effdata/x1/" + id);
+         byte[] data;
+         BufferedImage oriImage;
+         if (packed.isFile()) {
+            try (DataInputStream dis = new DataInputStream(new FileInputStream(packed))) {
+               dis.readShort();
+               data = new byte[dis.readInt()];
+               dis.readFully(data);
+               byte[] dataImage = new byte[dis.readInt()];
+               dis.readFully(dataImage);
+               oriImage = ImageIO.read(new ByteArrayInputStream(dataImage));
+            }
+         } else {
+            java.io.File animation = new java.io.File(root, "effdata/DataEffect_" + id);
+            java.io.File image = new java.io.File(root, "effect/x1/ImgEffect_" + id + ".png");
+            if (!animation.isFile() || !image.isFile()) return null;
+            data = java.nio.file.Files.readAllBytes(animation.toPath());
+            oriImage = ImageIO.read(image);
          }
-         DataInputStream dis = new DataInputStream(new FileInputStream(file));
-         dis.readShort();
-         byte[] data = new byte[dis.readInt()];
-         dis.readFully(data);
-         byte[] dataImage = new byte[dis.readInt()];
-         dis.readFully(dataImage);
-         dis.close();
-         ByteArrayInputStream bis = new ByteArrayInputStream(dataImage);
-         BufferedImage oriImage = ImageIO.read(bis);
-         if (oriImage != null) {
-            eff = new EffectTemplate();
-            eff.setId(id);
-            eff.setImageOri(oriImage);
-            this.readDataEffect(data, 1, oriImage, eff, id);
-         }
-      } catch (Exception var8) {
-         Logger.error("Lỗi parse dữ liệu effect " + id + "\n");
-         var8.printStackTrace();
+         if (oriImage == null) return null;
+         EffectTemplate eff = new EffectTemplate();
+         eff.setId(id);
+         eff.setImageOri(oriImage);
+         this.readDataEffect(data, 1, oriImage, eff, id);
+         return eff;
+      } catch (Exception ex) {
+         Logger.error("Lỗi parse dữ liệu effect " + id + ": " + ex.getMessage() + "\n");
+         return null;
       }
-
-      return eff;
    }
 
    private void readDataEffect(byte[] data, int zoom, BufferedImage oriImage, EffectTemplate eff, int idEff) {
       try {
          ByteArrayInputStream bis = new ByteArrayInputStream(data);
          DataInputStream dis = new DataInputStream(bis);
-         int nImageInfo = dis.readByte();
+         int nImageInfo = dis.readUnsignedByte();
          BufferedImage[] imageInfo = new BufferedImage[nImageInfo];
          eff.setAxisSubImage(new int[nImageInfo][]);
 
@@ -229,9 +224,7 @@ public class Manager {
                eff.getAxisSubImage()[i][3] = w;
                eff.getAxisSubImage()[i][4] = h;
             } catch (Exception var17) {
-               var17.printStackTrace();
-               System.out.println(oriImage.getWidth() + " : " + x + " : " + w + " -");
-               JOptionPane.showMessageDialog(Main.I, null, null, 1, new ImageIcon(oriImage));
+               throw new IllegalArgumentException("Invalid effect sprite " + i, var17);
             }
          }
 
@@ -239,14 +232,14 @@ public class Manager {
          eff.setAxisFrame(new int[nFrame][][]);
 
          for (int i = 0; i < nFrame; i++) {
-            int nF = dis.readByte();
+            int nF = dis.readUnsignedByte();
             eff.getAxisFrame()[i] = new int[nF][];
 
             for (int j = 0; j < nF; j++) {
                eff.getAxisFrame()[i][j] = new int[3];
                int dx = dis.readShort() * zoom;
                int dy = dis.readShort() * zoom;
-               int idImage = dis.readByte();
+               int idImage = dis.readUnsignedByte();
                eff.getAxisFrame()[i][j][0] = dx;
                eff.getAxisFrame()[i][j][1] = dy;
                eff.getAxisFrame()[i][j][2] = idImage;
@@ -260,6 +253,7 @@ public class Manager {
             i++;
          }
       } catch (Exception var18) {
+         throw new IllegalArgumentException("Invalid effect data " + idEff, var18);
       }
    }
 

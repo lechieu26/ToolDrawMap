@@ -921,6 +921,8 @@ public class ShopManagerDAO {
         public int body;
         public int leg;
         public int avatar;
+        public String chat = "[]";
+        public int chatIntervalSeconds = 5;
 
         public NpcFullInfo(int id, String name, int head, int body, int leg, int avatar) {
             this.id = id;
@@ -930,6 +932,13 @@ public class ShopManagerDAO {
             this.leg = leg;
             this.avatar = avatar;
         }
+
+        public NpcFullInfo(int id, String name, int head, int body, int leg, int avatar,
+                String chat, int chatIntervalSeconds) {
+            this(id, name, head, body, leg, avatar);
+            this.chat = chat;
+            this.chatIntervalSeconds = chatIntervalSeconds;
+        }
     }
 
     public List<NpcFullInfo> getNpcsWithFullInfo() {
@@ -937,7 +946,7 @@ public class ShopManagerDAO {
         try {
             Connection conn = getConnection();
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "SELECT id, NAME, head, body, leg, avatar FROM npc_template ORDER BY id ASC")) {
+                    "SELECT id, NAME, head, body, leg, avatar, chat, chat_interval_seconds FROM npc_template ORDER BY id ASC")) {
                 ResultSet rs = stmt.executeQuery();
                 while (rs.next()) {
                     npcs.add(new NpcFullInfo(
@@ -946,7 +955,7 @@ public class ShopManagerDAO {
                             rs.getInt("head"),
                             rs.getInt("body"),
                             rs.getInt("leg"),
-                            rs.getInt("avatar")));
+                            rs.getInt("avatar"), rs.getString("chat"), rs.getInt("chat_interval_seconds")));
                 }
             }
         } catch (Exception e) {
@@ -959,7 +968,7 @@ public class ShopManagerDAO {
         try {
             Connection conn = getConnection();
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "SELECT id, NAME, head, body, leg, avatar FROM npc_template WHERE id = ?")) {
+                    "SELECT id, NAME, head, body, leg, avatar, chat, chat_interval_seconds FROM npc_template WHERE id = ?")) {
                 stmt.setInt(1, npcId);
                 ResultSet rs = stmt.executeQuery();
                 if (rs.next()) {
@@ -969,7 +978,7 @@ public class ShopManagerDAO {
                             rs.getInt("head"),
                             rs.getInt("body"),
                             rs.getInt("leg"),
-                            rs.getInt("avatar"));
+                            rs.getInt("avatar"), rs.getString("chat"), rs.getInt("chat_interval_seconds"));
                 }
             }
         } catch (Exception e) {
@@ -1042,16 +1051,40 @@ public class ShopManagerDAO {
     }
 
     public void addNewNpc(int id, String name) {
+        addNewNpc(id, name, "[]", 5);
+    }
+
+    public void addNewNpc(int id, String name, String chat, int chatIntervalSeconds) {
         try {
             Connection conn = getConnection();
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO npc_template (id, NAME, head, body, leg, avatar) VALUES (?, ?, -1, -1, -1, -1)")) {
+                    "INSERT INTO npc_template (id, NAME, head, body, leg, avatar, chat, chat_interval_seconds) "
+                            + "VALUES (?, ?, -1, -1, -1, -1, ?, ?)")) {
                 stmt.setInt(1, id);
                 stmt.setString(2, name);
+                stmt.setString(3, chat);
+                stmt.setInt(4, chatIntervalSeconds);
                 stmt.executeUpdate();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new IllegalStateException("Không thể tạo NPC: " + e.getMessage(), e);
+        }
+    }
+
+    public void updateNpcChat(int id, String chat, int chatIntervalSeconds) {
+        try {
+            Connection conn = getConnection();
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "UPDATE npc_template SET chat = ?, chat_interval_seconds = ? WHERE id = ?")) {
+                stmt.setString(1, chat);
+                stmt.setInt(2, chatIntervalSeconds);
+                stmt.setInt(3, id);
+                if (stmt.executeUpdate() != 1) {
+                    throw new IllegalStateException("NPC không còn tồn tại hoặc không thể cập nhật.");
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Không thể lưu chat NPC: " + e.getMessage(), e);
         }
     }
 
@@ -1389,6 +1422,7 @@ public class ShopManagerDAO {
                         b.subType = rs.getString("sub_type");
                         b.gender = rs.getByte("gender");
                         b.enabled = rs.getBoolean("enabled");
+                        b.singleBossForms = rs.getBoolean("single_boss_forms");
                         b.spawnCount = rs.getInt("spawn_count");
                         b.respawnDelay = rs.getInt("respawn_delay");
                         b.despawnTimeout = rs.getInt("despawn_timeout");
@@ -1581,10 +1615,18 @@ public class ShopManagerDAO {
                 conn.setAutoCommit(false);
                 try {
                     // 1. boss_template
-                    String sqlTemplate = "REPLACE INTO boss_template (" +
+                    // Update in place: REPLACE deletes the row and cascades incoming companion links.
+                    String sqlTemplate = "INSERT INTO boss_template (" +
                             "id, name, type, sub_type, gender, enabled, spawn_count, " +
                             "respawn_delay, despawn_timeout, is_notify, is_zone_0_1_disabled, " +
-                            "require_task_id, extra_config) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                            "require_task_id, extra_config, single_boss_forms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                            "ON DUPLICATE KEY UPDATE name=VALUES(name), type=VALUES(type), " +
+                            "sub_type=VALUES(sub_type), gender=VALUES(gender), enabled=VALUES(enabled), " +
+                            "spawn_count=VALUES(spawn_count), respawn_delay=VALUES(respawn_delay), " +
+                            "despawn_timeout=VALUES(despawn_timeout), is_notify=VALUES(is_notify), " +
+                            "is_zone_0_1_disabled=VALUES(is_zone_0_1_disabled), " +
+                            "require_task_id=VALUES(require_task_id), extra_config=VALUES(extra_config), " +
+                            "single_boss_forms=VALUES(single_boss_forms)";
                     try (PreparedStatement stmt = conn.prepareStatement(sqlTemplate)) {
                         stmt.setInt(1, b.bossId);
                         stmt.setString(2, b.bossName);
@@ -1599,6 +1641,7 @@ public class ShopManagerDAO {
                         stmt.setBoolean(11, b.isZone01SpawnDisabled);
                         stmt.setObject(12, b.requireTaskId);
                         stmt.setString(13, b.extraConfig);
+                        stmt.setBoolean(14, b.singleBossForms);
                         stmt.executeUpdate();
                     }
 
@@ -1633,7 +1676,7 @@ public class ShopManagerDAO {
                     }
                     if (b.bossesAppearTogether != null && !b.bossesAppearTogether.trim().isEmpty()) {
                         String[] parts = b.bossesAppearTogether.split("[,;\\s]+");
-                        String sqlTogether = "INSERT IGNORE INTO boss_appear_together (boss_id, sub_boss_id) VALUES (?, ?)";
+                        String sqlTogether = "INSERT INTO boss_appear_together (boss_id, sub_boss_id) VALUES (?, ?)";
                         Set<Integer> validIds = new HashSet<>();
                         try (PreparedStatement psCheck = conn.prepareStatement("SELECT id FROM boss_template")) {
                             try (ResultSet rsCheck = psCheck.executeQuery()) {
@@ -1644,17 +1687,24 @@ public class ShopManagerDAO {
                         for (String p : parts) {
                             String s = p.trim();
                             if (!s.isEmpty()) {
+                                int subId;
                                 try {
-                                    int subId = Integer.parseInt(s);
-                                    if (validIds.contains(subId) && subId != b.bossId && !added.contains(subId)) {
-                                        added.add(subId);
-                                        try (PreparedStatement ps = conn.prepareStatement(sqlTogether)) {
-                                            ps.setInt(1, b.bossId);
-                                            ps.setInt(2, subId);
-                                            ps.executeUpdate();
-                                        }
+                                    subId = Integer.parseInt(s);
+                                } catch (NumberFormatException ex) {
+                                    throw new IllegalArgumentException("ID boss đi cùng không hợp lệ: " + s, ex);
+                                }
+                                if (subId == b.bossId) {
+                                    throw new IllegalArgumentException("Boss không thể đi cùng chính nó: " + subId);
+                                }
+                                if (!validIds.contains(subId)) {
+                                    throw new IllegalArgumentException("Boss đi cùng chưa tồn tại trong DB: " + subId);
+                                }
+                                if (added.add(subId)) {
+                                    try (PreparedStatement ps = conn.prepareStatement(sqlTogether)) {
+                                        ps.setInt(1, b.bossId);
+                                        ps.setInt(2, subId);
+                                        ps.executeUpdate();
                                     }
-                                } catch (NumberFormatException ignored) {
                                 }
                             }
                         }
@@ -1814,8 +1864,7 @@ public class ShopManagerDAO {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Error saving boss config: " + e.getMessage());
-            e.printStackTrace();
+            throw new IllegalStateException("Không thể lưu Boss: " + e.getMessage(), e);
         }
     }
 
