@@ -1038,6 +1038,18 @@ public class ShopManagerScr extends JInternalFrame {
         }
     }
 
+    private boolean isClanPointSell(int typeSell) {
+        return dao.getDbType() == DbConfig.DB_NRO_ARN && typeSell == 4;
+    }
+
+    private int getItemSpec(int typeSell) {
+        if (isClanPointSell(typeSell)) {
+            return 7223;
+        }
+        ItemTemplate specTpl = (ItemTemplate) cbIconSpec.getSelectedItem();
+        return specTpl != null && cbIconSpec.isEnabled() ? specTpl.id : 0;
+    }
+
     private void addItem() {
         TabShop t = (TabShop) cbItemTabList.getSelectedItem();
         if (t == null) {
@@ -1075,13 +1087,8 @@ public class ShopManagerScr extends JInternalFrame {
             raw.is_new = chkNewItem.isSelected();
             raw.is_sell = chkSellItem.isSelected();
 
-            // item_spec logic
-            ItemTemplate specTpl = (ItemTemplate) cbIconSpec.getSelectedItem();
-            if (specTpl != null && cbIconSpec.isEnabled()) {
-                raw.item_spec = specTpl.id;
-            } else {
-                raw.item_spec = 0;
-            }
+            // NRO_ARN persists item_spec in the icon_spec column.
+            raw.item_spec = getItemSpec(raw.type_sell);
 
             DisplayItem disp = new DisplayItem();
             disp.id = tpl.id;
@@ -1135,13 +1142,7 @@ public class ShopManagerScr extends JInternalFrame {
             if (tpl != null)
                 raw.temp_id = tpl.id;
 
-            // item_spec logic
-            ItemTemplate specTpl = (ItemTemplate) cbIconSpec.getSelectedItem();
-            if (specTpl != null && cbIconSpec.isEnabled()) {
-                raw.item_spec = specTpl.id;
-            } else {
-                raw.item_spec = 0;
-            }
+            raw.item_spec = getItemSpec(raw.type_sell);
 
             DisplayItem disp = currentDisplayItems.get(selectedItemIdx);
             disp.cost = raw.cost;
@@ -1268,6 +1269,11 @@ public class ShopManagerScr extends JInternalFrame {
     private void saveItemsToDb() {
         TabShop t = (TabShop) cbItemTabList.getSelectedItem();
         if (t != null) {
+            for (ItemData item : currentRawItems) {
+                if (isClanPointSell(item.type_sell)) {
+                    item.item_spec = 7223;
+                }
+            }
             dao.updateItemsJson(t.id, currentRawItems);
             JOptionPane.showMessageDialog(this, "Đã lưu dữ liệu Items vào DB!");
         }
