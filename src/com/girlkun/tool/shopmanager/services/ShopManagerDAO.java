@@ -1453,7 +1453,8 @@ public class ShopManagerDAO {
                         form.outfitBody = rs.getShort("outfit_body");
                         form.outfitLeg = rs.getShort("outfit_leg");
                         form.outfitBag = rs.getShort("outfit_bag");
-                        form.outfitAura = rs.getShort("outfit_aura");
+                        short aura = rs.getShort("outfit_aura");
+                        form.outfitAura = rs.wasNull() || aura < 0 ? null : aura;
                         form.outfitEff = rs.getShort("outfit_eff");
                         form.textStart = rs.getString("text_start");
                         form.textMid = rs.getString("text_mid");
@@ -1562,7 +1563,7 @@ public class ShopManagerDAO {
                     BossFormConfig f0 = b.forms.get(0);
                     b.dame = f0.dame;
                     b.hp = (f0.hpMin == f0.hpMax) ? String.valueOf(f0.hpMin) : (f0.hpMin + ", " + f0.hpMax);
-                    b.outfit = f0.outfitHead + "," + f0.outfitBody + "," + f0.outfitLeg + "," + f0.outfitBag + "," + f0.outfitAura + "," + f0.outfitEff;
+                    b.outfit = f0.outfitHead + "," + f0.outfitBody + "," + f0.outfitLeg + "," + f0.outfitBag + "," + (f0.outfitAura == null ? -1 : f0.outfitAura) + "," + f0.outfitEff;
                     b.textS = f0.textStart;
                     b.textM = f0.textMid;
                     b.textE = f0.textEnd;
@@ -1753,7 +1754,8 @@ public class ShopManagerDAO {
                                 ps.setShort(8, form.outfitBody);
                                 ps.setShort(9, form.outfitLeg);
                                 ps.setShort(10, form.outfitBag);
-                                ps.setShort(11, form.outfitAura);
+                                // Legacy schemas use NOT NULL with -1 for no aura.
+                                ps.setShort(11, form.outfitAura == null ? (short) -1 : form.outfitAura);
                                 ps.setShort(12, form.outfitEff);
                                 ps.setString(13, form.textStart != null ? form.textStart : "[]");
                                 ps.setString(14, form.textMid != null ? form.textMid : "[]");

@@ -15,7 +15,7 @@ public class BossFormConfig {
     public short outfitBody = -1;
     public short outfitLeg = -1;
     public short outfitBag = -1;
-    public short outfitAura = -1;
+    public Short outfitAura = null;
     public short outfitEff = -1;
     public String textStart = "[]";
     public String textMid = "[]";

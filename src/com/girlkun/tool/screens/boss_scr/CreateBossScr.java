@@ -75,6 +75,152 @@ public class CreateBossScr extends JInternalFrame {
 
     private int selectedHeadPartId = -1, selectedBodyPartId = -1, selectedLegPartId = -1;
     private JLabel lblCurrentOutfit;
+    private JButton btnAura;
+    private Short selectedAuraId;
+    private final Map<Integer, AuraPreview> auraPreviews = new TreeMap<>();
+    private String auraLoadError;
+    private boolean auraLoading = true;
+    private int auraFrame;
+
+    private static class AuraPreview {
+        final BufferedImage[] layers = new BufferedImage[2];
+        final int[] frames = new int[2];
+
+        void draw(Graphics2D g, int tick, int x, int y, double scale) {
+            for (int i = 0; i < layers.length; i++) {
+                BufferedImage img = layers[i];
+                if (img == null) continue;
+                int h = img.getHeight() / frames[i];
+                int frame = Math.floorMod(tick, frames[i]);
+                int wDraw = (int) Math.round(img.getWidth() * scale);
+                int hDraw = (int) Math.round(h * scale);
+                g.drawImage(img, x - wDraw / 2, y - hDraw, x - wDraw / 2 + wDraw, y,
+                        0, frame * h, img.getWidth(), (frame + 1) * h, null);
+            }
+        }
+
+        ImageIcon icon() {
+            BufferedImage icon = new BufferedImage(90, 90, BufferedImage.TYPE_INT_ARGB);
+            int w = 1, h = 1;
+            for (int i = 0; i < layers.length; i++) {
+                if (layers[i] != null) {
+                    w = Math.max(w, layers[i].getWidth());
+                    h = Math.max(h, layers[i].getHeight() / frames[i]);
+                }
+            }
+            Graphics2D g = icon.createGraphics();
+            draw(g, 0, 45, 88, Math.min(86.0 / w, 86.0 / h));
+            g.dispose();
+            return new ImageIcon(icon);
+        }
+    }
+
+    private void loadAuraPreviews() {
+        new SwingWorker<Map<Integer, AuraPreview>, Void>() {
+            protected Map<Integer, AuraPreview> doInBackground() throws Exception {
+                Map<Integer, AuraPreview> result = new TreeMap<>();
+                Connection con = ShopManagerDAO.gI().getConnection();
+                try (PreparedStatement ps = con.prepareStatement(
+                        "SELECT name, n_frame FROM img_by_name WHERE name LIKE 'aura_%'");
+                     ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String name = rs.getString("name");
+                        if (!name.matches("aura_[0-9]+_[01]")) continue;
+                        String[] parts = name.split("_");
+                        int id = Integer.parseInt(parts[1]);
+                        if (id > Short.MAX_VALUE) continue;
+                        int layer = Integer.parseInt(parts[2]);
+                        File file = new File(com.girlkun.tool.utils.PathConfig.getDataPath(),
+                                "img_by_name/x4/" + name + ".png");
+                        if (!file.isFile()) continue;
+                        BufferedImage img = ImageIO.read(file);
+                        int frames = Math.max(1, rs.getInt("n_frame"));
+                        if (img == null || img.getHeight() < frames) continue;
+                        AuraPreview preview = result.computeIfAbsent(id, k -> new AuraPreview());
+                        preview.layers[layer] = img;
+                        preview.frames[layer] = frames;
+                    }
+                }
+                return result;
+            }
+            protected void done() {
+                try {
+                    auraPreviews.clear();
+                    auraPreviews.putAll(get());
+                    auraLoadError = null;
+                } catch (Exception e) {
+                    auraLoadError = "Không tải được aura: " + e.getMessage();
+                }
+                auraLoading = false;
+                updateAuraCanvasSize();
+                canvas.repaint();
+            }
+        }.execute();
+    }
+
+    private void setSelectedAura(Short id) {
+        selectedAuraId = id == null || id < 0 ? null : id;
+        auraFrame = 0;
+        btnAura.setText(selectedAuraId == null ? "Aura: Không có" : "Aura: " + selectedAuraId);
+        updateAuraCanvasSize();
+        canvas.repaint();
+    }
+
+    private void updateAuraCanvasSize() {
+        int w = 400, h = 300;
+        AuraPreview aura = selectedAuraId == null ? null : auraPreviews.get(selectedAuraId.intValue());
+        if (aura != null) {
+            for (int i = 0; i < aura.layers.length; i++) {
+                if (aura.layers[i] == null) continue;
+                w = Math.max(w, aura.layers[i].getWidth() + 40);
+                h = Math.max(h, aura.layers[i].getHeight() / aura.frames[i] + 80);
+            }
+        }
+        canvas.setPreferredSize(new Dimension(w, h));
+        canvas.revalidate();
+    }
+
+    private void openAuraSelector() {
+        if (auraLoading) {
+            JOptionPane.showMessageDialog(this, "Đang tải danh sách aura...");
+            return;
+        }
+        if (auraLoadError != null) {
+            JOptionPane.showMessageDialog(this, auraLoadError);
+            auraLoading = true;
+            loadAuraPreviews();
+            return;
+        }
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this),
+                "Chọn aura cho form boss", Dialog.ModalityType.APPLICATION_MODAL);
+        JPanel grid = new JPanel(new GridLayout(0, 5, 6, 6));
+        JButton none = new JButton("Không có (null)");
+        none.addActionListener(e -> { setSelectedAura(null); dialog.dispose(); });
+        grid.add(none);
+        for (Map.Entry<Integer, AuraPreview> entry : auraPreviews.entrySet()) {
+            JButton item = new JButton("Aura " + entry.getKey(), entry.getValue().icon());
+            item.setVerticalTextPosition(SwingConstants.BOTTOM);
+            item.setHorizontalTextPosition(SwingConstants.CENTER);
+            if (selectedAuraId != null && selectedAuraId.intValue() == entry.getKey()) {
+                item.setBorder(BorderFactory.createLineBorder(new Color(30, 144, 255), 3));
+            }
+            item.addActionListener(e -> {
+                setSelectedAura(entry.getKey().shortValue());
+                dialog.dispose();
+            });
+            grid.add(item);
+        }
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.add(grid, BorderLayout.NORTH);
+        dialog.add(new JScrollPane(wrapper), BorderLayout.CENTER);
+        dialog.add(new JLabel(auraPreviews.isEmpty()
+                ? "Không tìm thấy ảnh aura trong data/img_by_name/x4."
+                : "Chọn icon để áp dụng; lưu boss để ghi vào database."), BorderLayout.SOUTH);
+        dialog.setSize(640, 520);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
 
     // Boss Data state
     private BossConfig currentBoss = null;
@@ -159,6 +305,7 @@ public class CreateBossScr extends JInternalFrame {
         loadBossConfigs();
         loadMapTemplates();
         startAnimation();
+        loadAuraPreviews();
 
         new SwingWorker<List<ItemOptionTemplate>, Void>() {
             @Override
@@ -180,6 +327,7 @@ public class CreateBossScr extends JInternalFrame {
         if (animationTimer != null)
             animationTimer.stop();
         animationTimer = new javax.swing.Timer(200, e -> {
+            if (animMode != 2) auraFrame++;
             if (animMode == 0) {
                 currentFrame = (currentFrame + 1) % 2;
                 if (canvas != null) canvas.repaint();
@@ -421,7 +569,13 @@ public class CreateBossScr extends JInternalFrame {
         pnlOutfitButtons.add(txtOutfitLeg);
         pnlOutfitButtons.add(btnLeg);
 
-        JPanel pnlCanvasSouth = new JPanel(new GridLayout(2, 1));
+        btnAura = new JButton("Aura: Không có");
+        btnAura.addActionListener(e -> openAuraSelector());
+        JPanel auraControls = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        auraControls.add(btnAura);
+
+        JPanel pnlCanvasSouth = new JPanel(new GridLayout(3, 1));
+        pnlCanvasSouth.add(auraControls);
         pnlCanvasSouth.add(pnlOutfitButtons);
         pnlCanvasSouth.add(pnlControls);
         pnlCanvasWrapper.add(pnlCanvasSouth, BorderLayout.SOUTH);
@@ -829,6 +983,7 @@ public class CreateBossScr extends JInternalFrame {
             selectedHeadPartId = form.outfitHead;
             selectedBodyPartId = form.outfitBody;
             selectedLegPartId = form.outfitLeg;
+            setSelectedAura(form.outfitAura);
             if (txtOutfitHead != null) txtOutfitHead.setText(String.valueOf(selectedHeadPartId));
             if (txtOutfitBody != null) txtOutfitBody.setText(String.valueOf(selectedBodyPartId));
             if (txtOutfitLeg != null) txtOutfitLeg.setText(String.valueOf(selectedLegPartId));
@@ -868,6 +1023,7 @@ public class CreateBossScr extends JInternalFrame {
             return;
         }
         BossFormConfig form = currentBoss.forms.get(currentFormIdx);
+        form.outfitAura = selectedAuraId;
         form.name = txtFormName.getText().trim();
         try {
             form.dame = Integer.parseInt(txtDame.getText().trim());
@@ -979,6 +1135,7 @@ public class CreateBossScr extends JInternalFrame {
             newForm.outfitHead = prev.outfitHead;
             newForm.outfitBody = prev.outfitBody;
             newForm.outfitLeg = prev.outfitLeg;
+            newForm.outfitAura = prev.outfitAura;
             newForm.dame = (int) (prev.dame * 1.5);
             newForm.hpMin = (long) (prev.hpMin * 1.5);
             newForm.hpMax = (long) (prev.hpMax * 1.5);
@@ -1899,7 +2056,18 @@ public class CreateBossScr extends JInternalFrame {
             g2d.setColor(Color.WHITE);
             g2d.drawString("Outfit: Head [" + selectedHeadPartId + "] | Body [" + selectedBodyPartId + "] | Leg [" + selectedLegPartId + "]", 10, 20);
 
-            // Draw Order: Leg -> Body -> Head
+            if (selectedAuraId != null) {
+                AuraPreview aura = auraPreviews.get(selectedAuraId.intValue());
+                if (aura != null) {
+                    for (int i = 0; i < aura.layers.length; i++) {
+                        if (aura.layers[i] != null) cy = Math.max(cy,
+                                aura.layers[i].getHeight() / aura.frames[i] + 40);
+                    }
+                    aura.draw(g2d, auraFrame, cx, cy, 1.0);
+                }
+                else g2d.drawString("Aura " + selectedAuraId + ": chưa có ảnh preview", 10, 40);
+            }
+            // Draw Order: Aura -> Leg -> Body -> Head
             drawPart(g2d, "leg", cx, cy);
             drawPart(g2d, "body", cx, cy);
             drawPart(g2d, "head", cx, cy);
