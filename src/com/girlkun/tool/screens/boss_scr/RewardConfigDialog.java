@@ -77,6 +77,7 @@ public class RewardConfigDialog extends JDialog {
             for (BossRewardConfig r : boss.rewards) {
                 ItemTemplate it = getItemTemplate(r.itemId);
                 RewardItem ri = new RewardItem(it, r.quantityMin, r.quantityMax, r.rate, r.eventPoint, r.activePoint);
+                ri.recordId = r.id;
                 parseItemOptions(ri, r.itemOptions);
                 currentRewardItems.add(ri);
             }
@@ -563,7 +564,7 @@ public class RewardConfigDialog extends JDialog {
             String optJson = optArr.toJSONString();
 
             BossRewardConfig rc = new BossRewardConfig(
-                    0,
+                    item.recordId,
                     boss.bossId,
                     item.template.id,
                     item.quantityMin,
@@ -597,6 +598,7 @@ public class RewardConfigDialog extends JDialog {
     }
 
     static class RewardItem {
+        int recordId;
         ItemTemplate template;
         int quantityMin = 1;
         int quantityMax = 1;

@@ -756,8 +756,9 @@ public class CreateBossScr extends JInternalFrame {
         sp.setPreferredSize(new Dimension(380, 0));
         sp.setBorder(BorderFactory.createTitledBorder("Kỹ năng của Dạng này & Phần thưởng"));
 
-        skillTableModel = new DefaultTableModel(new Object[] { "Kỹ Năng", "Cấp (1-7)", "Hồi chiêu (ms)" }, 0);
+        skillTableModel = new DefaultTableModel(new Object[] { "Kỹ Năng", "Cấp (1-7)", "Hồi chiêu (ms)", "Record" }, 0);
         skillTable = new JTable(skillTableModel);
+        skillTable.removeColumn(skillTable.getColumnModel().getColumn(3));
         Color skillBorderColor = UIManager.getColor("Component.borderColor");
         if (skillBorderColor == null) skillBorderColor = Color.GRAY;
         skillTable.setShowGrid(true);
@@ -998,7 +999,7 @@ public class CreateBossScr extends JInternalFrame {
                     skillTableModel.addRow(new Object[] {
                             st != null ? st : String.valueOf(sk.skillId),
                             String.valueOf(sk.skillLevel),
-                            String.valueOf(sk.cooldown)
+                            String.valueOf(sk.cooldown), sk
                     });
                 }
             }
@@ -1103,7 +1104,15 @@ public class CreateBossScr extends JInternalFrame {
                 cd = Integer.parseInt(skillTableModel.getValueAt(i, 2).toString());
             } catch (Exception ignored) {
             }
-            form.skills.add(new BossSkillConfig(skillId, level, cd));
+            BossSkillConfig sk = (BossSkillConfig) skillTableModel.getValueAt(i, 3);
+            if (sk == null) {
+                sk = new BossSkillConfig();
+                skillTableModel.setValueAt(sk, i, 3);
+            }
+            sk.skillId = skillId;
+            sk.skillLevel = level;
+            sk.cooldown = cd;
+            form.skills.add(sk);
         }
 
         // Update dropdown item text to reflect modified form name

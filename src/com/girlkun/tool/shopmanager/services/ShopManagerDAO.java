@@ -1609,11 +1609,112 @@ public class ShopManagerDAO {
         return list;
     }
 
+    private static Set<Integer> parseBossIds(String text) {
+        Set<Integer> ids = new java.util.LinkedHashSet<>();
+        if (text != null && !text.trim().isEmpty()) {
+            for (String token : text.trim().split("[,;\\s]+")) {
+                ids.add(Integer.parseInt(token));
+            }
+        }
+        return ids;
+    }
+
+    // Table and column names are internal constants, never user input.
+    private static void syncBossLinks(Connection conn, String table, String column, int bossId,
+            Set<Integer> selected) throws SQLException {
+        Set<Integer> existing = new HashSet<>();
+        try (PreparedStatement ps = conn.prepareStatement("SELECT " + column + " FROM " + table + " WHERE boss_id=?")) {
+            ps.setInt(1, bossId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) existing.add(rs.getInt(1));
+            }
+        }
+        for (int id : existing) {
+            if (!selected.contains(id)) {
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM " + table + " WHERE boss_id=? AND " + column + "=?")) {
+                    ps.setInt(1, bossId);
+                    ps.setInt(2, id);
+                    ps.executeUpdate();
+                }
+            }
+        }
+        String insert = "INSERT INTO " + table + " (boss_id," + column
+                + (table.equals("boss_map") ? ",zone_id) VALUES (?,?,-1)" : ") VALUES (?,?)");
+        for (int id : selected) {
+            if (!existing.contains(id)) {
+                try (PreparedStatement ps = conn.prepareStatement(insert)) {
+                    ps.setInt(1, bossId);
+                    ps.setInt(2, id);
+                    ps.executeUpdate();
+                }
+            }
+        }
+    }
+
+    private static <T> void syncBossRows(Connection conn, String table, String ownerColumn, int ownerId,
+            String[] columns, List<T> rows, java.util.function.ToIntFunction<T> getId,
+            java.util.function.Function<T, Object[]> values, java.util.function.ObjIntConsumer<T> setId,
+            List<Runnable> afterCommit) throws SQLException {
+        Set<Integer> existing = new HashSet<>();
+        try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM " + table + " WHERE " + ownerColumn + "=?")) {
+            ps.setInt(1, ownerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) existing.add(rs.getInt(1));
+            }
+        }
+        Set<Integer> retained = new HashSet<>();
+        if (rows == null) rows = java.util.Collections.emptyList();
+        for (T row : rows) {
+            int id = getId.applyAsInt(row);
+            if (id > 0 && (!existing.contains(id) || !retained.add(id))) {
+                throw new IllegalArgumentException(table + ": ID không thuộc bản ghi cha hoặc bị trùng: " + id);
+            }
+        }
+        for (int id : existing) {
+            if (!retained.contains(id)) {
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM " + table + " WHERE id=? AND " + ownerColumn + "=?")) {
+                    ps.setInt(1, id);
+                    ps.setInt(2, ownerId);
+                    ps.executeUpdate();
+                }
+            }
+        }
+        List<String> assignments = new ArrayList<>();
+        for (String column : columns) assignments.add(column + "=?");
+        String update = "UPDATE " + table + " SET " + String.join(",", assignments)
+                + " WHERE id=? AND " + ownerColumn + "=?";
+        String insert = "INSERT INTO " + table + " (" + String.join(",", columns) + "," + ownerColumn
+                + ") VALUES (" + String.join(",", java.util.Collections.nCopies(columns.length + 1, "?")) + ")";
+        for (T row : rows) {
+            int id = getId.applyAsInt(row);
+            boolean isNew = id <= 0;
+            try (PreparedStatement ps = conn.prepareStatement(isNew ? insert : update,
+                    isNew ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS)) {
+                Object[] fields = values.apply(row);
+                for (int i = 0; i < fields.length; i++) ps.setObject(i + 1, fields[i]);
+                int next = fields.length + 1;
+                if (!isNew) ps.setInt(next++, id);
+                ps.setInt(next, ownerId);
+                ps.executeUpdate();
+                if (isNew) {
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (!rs.next()) throw new SQLException("Không lấy được ID mới: " + table);
+                        id = rs.getInt(1);
+                    }
+                }
+            }
+            final int savedId = id;
+            afterCommit.add(() -> setId.accept(row, savedId));
+        }
+    }
+
     public void saveBossConfig(BossConfig b) {
         try {
             Connection conn = getConnection();
             if (isBossTemplateTableExists(conn)) {
                 conn.setAutoCommit(false);
+                Map<BossFormConfig, Integer> savedFormIds = new LinkedHashMap<>();
+                List<Runnable> afterCommit = new ArrayList<>();
                 try {
                     // 1. boss_template
                     // Update in place: REPLACE deletes the row and cascades incoming companion links.
@@ -1646,70 +1747,20 @@ public class ShopManagerDAO {
                         stmt.executeUpdate();
                     }
 
-                    // 2. boss_map
-                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_map WHERE boss_id = ?")) {
-                        ps.setInt(1, b.bossId);
-                        ps.executeUpdate();
+                    // Preserve existing map rows, including zone_id, and companion links.
+                    syncBossLinks(conn, "boss_map", "map_id", b.bossId, parseBossIds(b.mapJoin));
+                    Set<Integer> companionIds = parseBossIds(b.bossesAppearTogether);
+                    Set<Integer> validIds = new HashSet<>();
+                    try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM boss_template");
+                            ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) validIds.add(rs.getInt(1));
                     }
-                    if (b.mapJoin != null && !b.mapJoin.trim().isEmpty()) {
-                        String[] parts = b.mapJoin.split("[,;\\s]+");
-                        String sqlMap = "INSERT INTO boss_map (boss_id, map_id, zone_id) VALUES (?, ?, -1)";
-                        for (String p : parts) {
-                            String s = p.trim();
-                            if (!s.isEmpty()) {
-                                try {
-                                    int mapId = Integer.parseInt(s);
-                                    try (PreparedStatement ps = conn.prepareStatement(sqlMap)) {
-                                        ps.setInt(1, b.bossId);
-                                        ps.setInt(2, mapId);
-                                        ps.executeUpdate();
-                                    }
-                                } catch (NumberFormatException ignored) {
-                                }
-                            }
+                    for (int id : companionIds) {
+                        if (id == b.bossId || !validIds.contains(id)) {
+                            throw new IllegalArgumentException("Boss đi cùng không hợp lệ: " + id);
                         }
                     }
-
-                    // 3. boss_appear_together
-                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_appear_together WHERE boss_id = ?")) {
-                        ps.setInt(1, b.bossId);
-                        ps.executeUpdate();
-                    }
-                    if (b.bossesAppearTogether != null && !b.bossesAppearTogether.trim().isEmpty()) {
-                        String[] parts = b.bossesAppearTogether.split("[,;\\s]+");
-                        String sqlTogether = "INSERT INTO boss_appear_together (boss_id, sub_boss_id) VALUES (?, ?)";
-                        Set<Integer> validIds = new HashSet<>();
-                        try (PreparedStatement psCheck = conn.prepareStatement("SELECT id FROM boss_template")) {
-                            try (ResultSet rsCheck = psCheck.executeQuery()) {
-                                while (rsCheck.next()) validIds.add(rsCheck.getInt("id"));
-                            }
-                        }
-                        Set<Integer> added = new HashSet<>();
-                        for (String p : parts) {
-                            String s = p.trim();
-                            if (!s.isEmpty()) {
-                                int subId;
-                                try {
-                                    subId = Integer.parseInt(s);
-                                } catch (NumberFormatException ex) {
-                                    throw new IllegalArgumentException("ID boss đi cùng không hợp lệ: " + s, ex);
-                                }
-                                if (subId == b.bossId) {
-                                    throw new IllegalArgumentException("Boss không thể đi cùng chính nó: " + subId);
-                                }
-                                if (!validIds.contains(subId)) {
-                                    throw new IllegalArgumentException("Boss đi cùng chưa tồn tại trong DB: " + subId);
-                                }
-                                if (added.add(subId)) {
-                                    try (PreparedStatement ps = conn.prepareStatement(sqlTogether)) {
-                                        ps.setInt(1, b.bossId);
-                                        ps.setInt(2, subId);
-                                        ps.executeUpdate();
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    syncBossLinks(conn, "boss_appear_together", "sub_boss_id", b.bossId, companionIds);
 
                     // 4. boss_form & boss_skill
                     List<Integer> oldFormIds = new ArrayList<>();
@@ -1721,29 +1772,49 @@ public class ShopManagerDAO {
                             }
                         }
                     }
-                    for (int fid : oldFormIds) {
-                        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_skill WHERE form_id = ?")) {
-                            ps.setInt(1, fid);
-                            ps.executeUpdate();
+                    Set<Integer> retainedFormIds = new HashSet<>();
+                    if (b.forms != null) {
+                        for (BossFormConfig form : b.forms) {
+                            if (form.id > 0 && (!oldFormIds.contains(form.id) || !retainedFormIds.add(form.id))) {
+                                throw new IllegalArgumentException("Form ID không thuộc boss hoặc bị trùng: " + form.id);
+                            }
                         }
                     }
-                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_form WHERE boss_id = ?")) {
+                    for (int fid : oldFormIds) {
+                        if (!retainedFormIds.contains(fid)) {
+                            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_skill WHERE form_id = ?")) {
+                                ps.setInt(1, fid);
+                                ps.executeUpdate();
+                            }
+                            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_form WHERE id = ? AND boss_id = ?")) {
+                                ps.setInt(1, fid);
+                                ps.setInt(2, b.bossId);
+                                ps.executeUpdate();
+                            }
+                        }
+                    }
+
+                    // Free the unique (boss_id, form_order) slots before renumbering retained forms.
+                    try (PreparedStatement ps = conn.prepareStatement("UPDATE boss_form SET form_order = -id WHERE boss_id = ?")) {
                         ps.setInt(1, b.bossId);
                         ps.executeUpdate();
                     }
-
                     if (b.forms != null && !b.forms.isEmpty()) {
                         String sqlForm = "INSERT INTO boss_form (boss_id, form_order, name, hp_min, hp_max, dame, " +
                                 "outfit_head, outfit_body, outfit_leg, outfit_bag, outfit_aura, outfit_eff, " +
                                 "text_start, text_mid, text_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                        String sqlSkill = "INSERT INTO boss_skill (form_id, skill_id, skill_level, cooldown) VALUES (?, ?, ?, ?)";
+                        String sqlUpdateForm = "UPDATE boss_form SET boss_id=?, form_order=?, name=?, hp_min=?, hp_max=?, dame=?, " +
+                                "outfit_head=?, outfit_body=?, outfit_leg=?, outfit_bag=?, outfit_aura=?, outfit_eff=?, " +
+                                "text_start=?, text_mid=?, text_end=? WHERE id=? AND boss_id=?";
 
                         for (int i = 0; i < b.forms.size(); i++) {
                             BossFormConfig form = b.forms.get(i);
                             form.bossId = b.bossId;
                             form.formOrder = i;
 
-                            try (PreparedStatement ps = conn.prepareStatement(sqlForm, Statement.RETURN_GENERATED_KEYS)) {
+                            boolean isNewForm = form.id <= 0;
+                            try (PreparedStatement ps = conn.prepareStatement(isNewForm ? sqlForm : sqlUpdateForm,
+                                    isNewForm ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS)) {
                                 ps.setInt(1, b.bossId);
                                 ps.setInt(2, i);
                                 ps.setString(3, (form.name != null && !form.name.trim().isEmpty()) ? form.name : b.bossName);
@@ -1760,53 +1831,44 @@ public class ShopManagerDAO {
                                 ps.setString(13, form.textStart != null ? form.textStart : "[]");
                                 ps.setString(14, form.textMid != null ? form.textMid : "[]");
                                 ps.setString(15, form.textEnd != null ? form.textEnd : "[]");
+                                if (!isNewForm) {
+                                    ps.setInt(16, form.id);
+                                    ps.setInt(17, b.bossId);
+                                }
                                 ps.executeUpdate();
 
-                                try (ResultSet rsKey = ps.getGeneratedKeys()) {
-                                    if (rsKey.next()) {
-                                        int formId = rsKey.getInt(1);
-                                        form.id = formId;
-
-                                        if (form.skills != null) {
-                                            for (BossSkillConfig sk : form.skills) {
-                                                try (PreparedStatement psk = conn.prepareStatement(sqlSkill)) {
-                                                    psk.setInt(1, formId);
-                                                    psk.setInt(2, sk.skillId);
-                                                    psk.setInt(3, sk.skillLevel);
-                                                    psk.setInt(4, sk.cooldown);
-                                                    psk.executeUpdate();
-                                                }
-                                            }
-                                        }
+                                int formId = form.id;
+                                if (isNewForm) {
+                                    try (ResultSet rsKey = ps.getGeneratedKeys()) {
+                                        if (!rsKey.next()) throw new SQLException("Không lấy được ID form mới");
+                                        formId = rsKey.getInt(1);
                                     }
                                 }
+                                savedFormIds.put(form, formId);
+
+                                final int ownerFormId = formId;
+                                syncBossRows(conn, "boss_skill", "form_id", formId,
+                                        new String[]{"skill_id", "skill_level", "cooldown"}, form.skills,
+                                        sk -> sk.id, sk -> new Object[]{sk.skillId, sk.skillLevel, sk.cooldown},
+                                        (sk, id) -> { sk.id = id; sk.formId = ownerFormId; }, afterCommit);
                             }
                         }
                     }
 
-                    // 5. boss_reward
-                    try (PreparedStatement ps = conn.prepareStatement("DELETE FROM boss_reward WHERE boss_id = ?")) {
-                        ps.setInt(1, b.bossId);
-                        ps.executeUpdate();
-                    }
-                    if (b.rewards != null && !b.rewards.isEmpty()) {
-                        String sqlReward = "INSERT INTO boss_reward (boss_id, item_id, quantity_min, quantity_max, rate, item_options, event_point, active_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-                        for (BossRewardConfig r : b.rewards) {
-                            try (PreparedStatement ps = conn.prepareStatement(sqlReward)) {
-                                ps.setInt(1, b.bossId);
-                                ps.setInt(2, r.itemId);
-                                ps.setInt(3, r.quantityMin > 0 ? r.quantityMin : 1);
-                                ps.setInt(4, r.quantityMax >= r.quantityMin ? r.quantityMax : r.quantityMin);
-                                ps.setDouble(5, r.rate > 0 ? r.rate : 100.0);
-                                ps.setString(6, r.itemOptions != null ? r.itemOptions : "[]");
-                                ps.setInt(7, r.eventPoint);
-                                ps.setInt(8, r.activePoint);
-                                ps.executeUpdate();
-                            }
-                        }
-                    }
+                    syncBossRows(conn, "boss_reward", "boss_id", b.bossId,
+                            new String[]{"item_id", "quantity_min", "quantity_max", "rate", "item_options", "event_point", "active_point"},
+                            b.rewards, r -> r.id,
+                            r -> new Object[]{r.itemId, r.quantityMin > 0 ? r.quantityMin : 1,
+                                    r.quantityMax >= r.quantityMin ? r.quantityMax : r.quantityMin,
+                                    r.rate, r.itemOptions != null ? r.itemOptions : "[]", r.eventPoint, r.activePoint},
+                            (r, id) -> { r.id = id; r.bossId = b.bossId; }, afterCommit);
 
                     conn.commit();
+                    afterCommit.forEach(Runnable::run);
+                    // Publish generated IDs only after commit, so a failed save can be retried.
+                    for (Map.Entry<BossFormConfig, Integer> entry : savedFormIds.entrySet()) {
+                        entry.getKey().id = entry.getValue();
+                    }
                 } catch (Exception ex) {
                     conn.rollback();
                     throw ex;
@@ -1815,7 +1877,7 @@ public class ShopManagerDAO {
                 }
             } else {
                 // Fallback for boss_config
-                String sql = "REPLACE INTO boss_config (" +
+                String sql = "INSERT INTO boss_config (" +
                         "boss_id, boss_name, gender, outfit, dame, hp, map_join, skills, " +
                         "text_s, text_m, text_e, seconds_rest, appear_type, bosses_appear_together, " +
                         "level_index, boss_type, is_notify_disabled, is_zone01_spawn_disabled, " +
@@ -1825,6 +1887,13 @@ public class ShopManagerDAO {
                         "done_chat_s_to_afk, skip_notify_at_level, skip_move_at_level, " +
                         "special_abilities, reward_config, custom_class, enabled) VALUES (" +
                         "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                String columns = sql.substring(sql.indexOf('(') + 1, sql.indexOf(')'));
+                List<String> updates = new ArrayList<>();
+                for (String column : columns.split(",")) {
+                    String name = column.trim();
+                    if (!name.equals("boss_id")) updates.add(name + "=VALUES(" + name + ")");
+                }
+                sql += " ON DUPLICATE KEY UPDATE " + String.join(", ", updates);
                 try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                     stmt.setInt(1, b.bossId);
                     stmt.setString(2, b.bossName);
