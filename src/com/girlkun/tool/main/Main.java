@@ -8,6 +8,7 @@ import com.girlkun.tool.screens.server.ServerRunnerScr;
 import com.girlkun.tool.screens.mob_reward.MobRewardScr;
 import com.girlkun.tool.screens.part_scr.AddSkinScr;
 import com.girlkun.tool.screens.effect_scr.EffectEditor;
+import com.girlkun.tool.screens.effect_scr.FlagBagEditor;
 import com.girlkun.tool.screens.mob_scr.MobEditor;
 import com.girlkun.tool.screens.sprite_scr.SpriteEditorScr;
 import com.girlkun.tool.screens.path_scr.PathEditor;
@@ -237,6 +238,15 @@ public class Main extends JFrame {
         btnEffectEditor.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
         btnEffectEditor.addActionListener(this::btnEffectEditorActionPerformed);
         jToolBar1.add(btnEffectEditor);
+
+        JButton btnFlagBag = new JButton("Flag bag");
+        btnFlagBag.setBackground(new Color(70, 130, 180));
+        btnFlagBag.setForeground(Color.WHITE);
+        btnFlagBag.setFocusable(false);
+        btnFlagBag.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnFlagBag.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, 45));
+        btnFlagBag.addActionListener(evt -> openFlagBagEditor());
+        jToolBar1.add(btnFlagBag);
 
         btnMobReward = new JButton();
         btnMobReward.setBackground(new Color(255, 140, 0)); // Dark Orange
@@ -749,6 +759,31 @@ public class Main extends JFrame {
         scr.setVisible(true);
         try {
             scr.setSelected(true);
+        } catch (java.beans.PropertyVetoException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void openFlagBagEditor() {
+        minimizeAllFrames();
+        for (javax.swing.JInternalFrame frame : desktop.getAllFrames()) {
+            if (frame instanceof FlagBagEditor) {
+                try {
+                    if (frame.isIcon()) frame.setIcon(false);
+                    frame.setSelected(true);
+                    frame.moveToFront();
+                } catch (java.beans.PropertyVetoException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+        FlagBagEditor editor = new FlagBagEditor();
+        desktop.add(editor);
+        editor.setLocation(0, 0);
+        editor.setVisible(true);
+        try {
+            editor.setSelected(true);
         } catch (java.beans.PropertyVetoException e) {
             e.printStackTrace();
         }
