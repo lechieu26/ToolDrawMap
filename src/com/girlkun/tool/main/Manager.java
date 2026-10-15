@@ -464,6 +464,15 @@ public class Manager {
       return this.mobTemplates;
    }
 
+   public MobTemplate getMobTemplateById(int id) {
+      for (MobTemplate template : this.mobTemplates) {
+         if (template.getId() == id) {
+            return template;
+         }
+      }
+      throw new IllegalArgumentException("Unknown mob template ID: " + id);
+   }
+
    public List<EffectTemplate> getEffectTemplates() {
       return this.effectTemplates;
    }

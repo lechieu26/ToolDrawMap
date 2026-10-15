@@ -507,17 +507,18 @@ public class EffectList extends JFrame {
 
          for (int j = 0; j < dataArray.size(); j++) {
             JSONArray dtm = (JSONArray)JSONValue.parse(String.valueOf(dataArray.get(j)));
-            int temp = Byte.parseByte(String.valueOf(dtm.get(0)));
+            int temp = Integer.parseInt(String.valueOf(dtm.get(0)));
             int level = Byte.parseByte(String.valueOf(dtm.get(1)));
             int hp = Integer.parseInt(String.valueOf(dtm.get(2)));
             int x = Short.parseShort(String.valueOf(dtm.get(3)));
             int y = Short.parseShort(String.valueOf(dtm.get(4)));
-            this.drawMapScr.mobs.add(new MobMap(Manager.gI().getMobTemplates().get(temp), x, y, level, hp));
+            this.drawMapScr.mobs.add(new MobMap(Manager.gI().getMobTemplateById(temp), x, y, level, hp));
             dtm.clear();
          }
 
          this.fillToTable();
       } catch (Exception var11) {
+         var11.printStackTrace();
       }
    }
 

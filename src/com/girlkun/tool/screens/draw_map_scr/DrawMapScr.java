@@ -69,13 +69,18 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.RowFilter;
 import javax.swing.JToolBar;
 import javax.swing.GroupLayout.Alignment;
 import javax.swing.JToolBar.Separator;
 import javax.swing.LayoutStyle.ComponentPlacement;
 import javax.swing.event.InternalFrameAdapter;
 import javax.swing.event.InternalFrameEvent;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
 
@@ -1291,12 +1296,29 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
       this.tilesetEditor.setVisible(true);
    }
 
+   private void toggleMapPopup(javax.swing.JFrame popup, Runnable refresh) {
+      int state = popup.getExtendedState();
+      boolean minimized = (state & java.awt.Frame.ICONIFIED) != 0;
+      if (popup.isVisible() && !minimized) {
+         popup.setVisible(false);
+         return;
+      }
+
+      if (refresh != null) {
+         refresh.run();
+      }
+      popup.setExtendedState(state & ~java.awt.Frame.ICONIFIED);
+      popup.setVisible(true);
+      popup.toFront();
+      popup.requestFocus();
+   }
+
    private void button5ActionPerformed(ActionEvent evt) {
       if (this.tableBGITEM == null) {
          this.tableBGITEM = new BGItemTable(this);
       }
 
-      this.tableBGITEM.setVisible(true);
+      toggleMapPopup(this.tableBGITEM, null);
    }
 
    private void button6ActionPerformed(ActionEvent evt) {
@@ -1353,8 +1375,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.bGItemList = new BGItemList(this);
       }
 
-      this.bGItemList.fillToTable();
-      this.bGItemList.setVisible(true);
+      toggleMapPopup(this.bGItemList, this.bGItemList::fillToTable);
    }
 
    private void jCheckBox1ActionPerformed(ActionEvent evt) {
@@ -1416,7 +1437,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.npcTable = new NpcTable(this);
       }
 
-      this.npcTable.setVisible(true);
+      toggleMapPopup(this.npcTable, null);
    }
 
    private void button10ActionPerformed(ActionEvent evt) {
@@ -1424,8 +1445,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.npcList = new NpcList(this);
       }
 
-      this.npcList.fillToTable();
-      this.npcList.setVisible(true);
+      toggleMapPopup(this.npcList, this.npcList::fillToTable);
    }
 
    private void button11ActionPerformed(ActionEvent evt) {
@@ -1433,7 +1453,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.mobTable = new MobTable(this);
       }
 
-      this.mobTable.setVisible(true);
+      toggleMapPopup(this.mobTable, null);
    }
 
    private void button12ActionPerformed(ActionEvent evt) {
@@ -1441,8 +1461,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.mobList = new MobList(this);
       }
 
-      this.mobList.fillToTable();
-      this.mobList.setVisible(true);
+      toggleMapPopup(this.mobList, this.mobList::fillToTable);
    }
 
    private void button13ActionPerformed(ActionEvent evt) {
@@ -1450,8 +1469,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.waypointList = new WaypointList(this);
       }
 
-      this.waypointList.fillToTable();
-      this.waypointList.setVisible(true);
+      toggleMapPopup(this.waypointList, this.waypointList::fillToTable);
    }
 
    private void button14ActionPerformed(ActionEvent evt) {
@@ -1816,8 +1834,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.effectTable = new EffectTable(this);
       }
 
-      this.effectTable.load();
-      this.effectTable.setVisible(true);
+      toggleMapPopup(this.effectTable, this.effectTable::load);
    }
 
    private void button21ActionPerformed(ActionEvent evt) {
@@ -1825,8 +1842,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
          this.effectList = new EffectList(this);
       }
 
-      this.effectList.fillToTable();
-      this.effectList.setVisible(true);
+      toggleMapPopup(this.effectList, this.effectList::fillToTable);
    }
 
    private void button22ActionPerformed(ActionEvent evt) {
@@ -1901,6 +1917,38 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
             table.getColumnModel().getColumn(1).setPreferredWidth(400);
             table.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
 
+            TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
+            table.setRowSorter(sorter);
+            JTextField txtSearch = new JTextField();
+            txtSearch.setToolTipText("Nhập ID hoặc tên map để lọc danh sách");
+            txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+               private void filterMaps() {
+                  String query = txtSearch.getText().trim();
+                  sorter.setRowFilter(query.isEmpty() ? null
+                        : RowFilter.regexFilter("(?iu)" + java.util.regex.Pattern.quote(query), 0, 1));
+               }
+
+               @Override
+               public void insertUpdate(DocumentEvent e) {
+                  filterMaps();
+               }
+
+               @Override
+               public void removeUpdate(DocumentEvent e) {
+                  filterMaps();
+               }
+
+               @Override
+               public void changedUpdate(DocumentEvent e) {
+                  filterMaps();
+               }
+            });
+            JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
+            searchPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 8, 8));
+            searchPanel.add(new JLabel("ID / tên map:"), BorderLayout.WEST);
+            searchPanel.add(txtSearch, BorderLayout.CENTER);
+            dialog.add(searchPanel, BorderLayout.NORTH);
+
             // Xử lý click vào row
             table.addMouseListener(new MouseAdapter() {
                @Override
@@ -1908,7 +1956,7 @@ public class DrawMapScr extends JInternalFrame implements com.girlkun.tool.main.
                   if (e.getClickCount() == 2) { // Double click
                      int row = table.getSelectedRow();
                      if (row >= 0) {
-                        int selectedMapId = (int) tableModel.getValueAt(row, 0);
+                        int selectedMapId = (int) tableModel.getValueAt(table.convertRowIndexToModel(row), 0);
                         dialog.dispose();
                         loadMapById(selectedMapId);
                      }
